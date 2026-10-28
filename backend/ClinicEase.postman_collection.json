@@ -1,0 +1,768 @@
+{
+  "info": {
+    "name": "ClinicEase API",
+    "description": "API requests for testing the ClinicEase backend. Start the backend, set the password variables to your local account passwords, run a login request, then set adminToken or patientToken from the returned token. Replace sample IDs before update or delete requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health check (GET, no token required)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin login (POST)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"{{adminPassword}}\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Patient login (POST)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"juan123\",\n  \"password\": \"{{patientPassword}}\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Register a patient account (POST, use a unique username each time)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"newpatient01\",\n  \"password\": \"{{newPatientPassword}}\",\n  \"first_name\": \"Taylor\",\n  \"last_name\": \"Example\",\n  \"date_of_birth\": \"1998-04-12\",\n  \"gender\": \"Other\",\n  \"address\": \"Quezon City\",\n  \"contact_number\": \"09170000000\",\n  \"email\": \"taylor.example@example.com\",\n  \"blood_type\": \"O+\",\n  \"allergies\": \"None\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get the current user profile (GET, patient or admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update the current patient's profile (PUT, patient token)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"address\": \"Makati City\",\n  \"contact_number\": \"09171112222\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Change the current user's password (PUT, patient or admin token)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/change-password"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"{{currentPassword}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get all patients (GET, admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/patients"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get a patient by ID (GET, admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create a patient (POST, admin token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/patients"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"newpatient02\",\n  \"password\": \"{{newPatientPassword}}\",\n  \"first_name\": \"Alex\",\n  \"last_name\": \"Example\",\n  \"date_of_birth\": \"1997-08-21\",\n  \"gender\": \"Other\",\n  \"address\": \"Pasig City\",\n  \"contact_number\": \"09173334444\",\n  \"email\": \"alex.example@example.com\",\n  \"blood_type\": \"A+\",\n  \"allergies\": \"None\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update a patient (PUT, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"first_name\": \"Juan\",\n  \"last_name\": \"Dela Cruz\",\n  \"date_of_birth\": \"1995-03-15\",\n  \"gender\": \"Male\",\n  \"address\": \"Quezon City\",\n  \"contact_number\": \"09171112222\",\n  \"email\": \"juan.delacruz@example.com\",\n  \"blood_type\": \"O+\",\n  \"allergies\": \"None\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Soft-delete a patient (DELETE, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get all doctors (GET, patient or admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/doctors"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get a doctor by ID (GET, patient or admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create a doctor (POST, admin token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/doctors"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"first_name\": \"Morgan\",\n  \"last_name\": \"Example\",\n  \"specialization\": \"Family Medicine\",\n  \"schedule\": \"Mon-Fri 08:00-17:00\",\n  \"contact_number\": \"09175556666\",\n  \"email\": \"morgan.example@example.com\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update a doctor (PUT, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"first_name\": \"Maria\",\n  \"last_name\": \"Reyes\",\n  \"specialization\": \"General Practitioner\",\n  \"schedule\": \"Mon-Fri 08:00-17:00\",\n  \"contact_number\": \"09171234567\",\n  \"email\": \"m.reyes@example.com\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Soft-delete a doctor (DELETE, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get appointments (GET, admin gets all; patient gets their own)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get an appointment by ID (GET, patient or admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create an appointment as a patient (POST, patient token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctor_id\": 1,\n  \"appointment_date\": \"2026-12-01\",\n  \"appointment_time\": \"09:30:00\",\n  \"notes\": \"Annual checkup\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create an appointment as an admin (POST, admin token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patient_id\": 1,\n  \"doctor_id\": 1,\n  \"appointment_date\": \"2026-12-02\",\n  \"appointment_time\": \"14:00:00\",\n  \"status\": \"confirmed\",\n  \"notes\": \"Follow-up visit\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update an appointment (PUT, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"patient_id\": 1,\n  \"doctor_id\": 1,\n  \"appointment_date\": \"2026-12-03\",\n  \"appointment_time\": \"11:00:00\",\n  \"status\": \"confirmed\",\n  \"notes\": \"Rescheduled follow-up\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Soft-delete an appointment (DELETE, patient or admin token; replace the sample ID before use)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get a patient's medical records (GET, patient can only view their own)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{patientToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/medical-records/{{patientId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get a medical record by ID (GET, admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/medical-records/record/{{medicalRecordId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create a medical record (POST, admin token; use an appointment without a record)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/medical-records"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"appointment_id\": 3,\n  \"patient_id\": 1,\n  \"doctor_id\": 3,\n  \"diagnosis\": \"Seasonal allergies\",\n  \"prescription\": \"As directed by the physician\",\n  \"consultation_notes\": \"Patient advised to follow up if symptoms persist.\",\n  \"follow_up_date\": \"2026-12-10\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update a medical record (PUT, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/medical-records/{{medicalRecordId}}"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"diagnosis\": \"Seasonal allergies\",\n  \"prescription\": \"Updated treatment plan\",\n  \"consultation_notes\": \"Symptoms improving.\",\n  \"follow_up_date\": \"2026-12-17\"\n}\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Soft-delete a medical record (DELETE, admin token; replace the sample ID before use)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/medical-records/{{medicalRecordId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get appointment report (GET, admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/reports/appointments"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get patient report (GET, admin token)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/reports/patients"
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "adminToken",
+      "value": "paste-admin-token-here",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientToken",
+      "value": "paste-patient-token-here",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "adminPassword",
+      "value": "set-your-admin-password",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientPassword",
+      "value": "set-your-patient-password",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "newPatientPassword",
+      "value": "set-a-new-patient-password",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "currentPassword",
+      "value": "set-your-current-password",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "newPassword",
+      "value": "set-your-new-password",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "patientId",
+      "value": "999999",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "doctorId",
+      "value": "999999",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "appointmentId",
+      "value": "999999",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "medicalRecordId",
+      "value": "999999",
+      "type": "default",
+      "enabled": true
+    }
+  ]
+}
