@@ -1,0 +1,113 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinicEase | Smart Clinic Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Login Section -->
+        <div id="loginSection" class="login-wrapper active">
+            <div class="login-card glassmorphism">
+                <div class="login-header">
+                    <div class="logo-icon">
+                        <i class="fas fa-heartbeat"></i>
+                    </div>
+                    <h1>ClinicEase</h1>
+                    <p>Online Clinic Appointment & Records System</p>
+                </div>
+                <form id="loginForm">
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="username" placeholder="Username" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="Password" required>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                <p class="register-link">Don't have an account? <a href="#" id="showRegisterBtn">Register as Patient</a></p>
+                <div class="security-note">
+                    <p><strong>Secure login:</strong> Your credentials are protected with end-to-end encryption.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Section -->
+        <div id="registerSection" class="login-wrapper">
+            <div class="login-card glassmorphism">
+                <div class="login-header">
+                    <i class="fas fa-user-plus"></i>
+                    <h2>Patient Registration</h2>
+                </div>
+                <form id="registerForm">
+                    <div class="form-row">
+                        <input type="text" id="reg_username" placeholder="Username *" required>
+                        <input type="password" id="reg_password" placeholder="Password *" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="text" id="reg_firstname" placeholder="First Name *" required>
+                        <input type="text" id="reg_lastname" placeholder="Last Name *" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="date" id="reg_dob" placeholder="Date of Birth">
+                        <select id="reg_gender">
+                            <option value="">Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <input type="text" id="reg_address" placeholder="Address">
+                    <div class="form-row">
+                        <input type="tel" id="reg_contact" placeholder="Contact Number">
+                        <input type="email" id="reg_email" placeholder="Email">
+                    </div>
+                    <button type="submit" class="btn-primary">Register <i class="fas fa-arrow-right"></i></button>
+                </form>
+                <p class="register-link">Already have an account? <a href="#" id="showLoginBtn">Login</a></p>
+            </div>
+        </div>
+
+        <!-- Main App Section (shown after login) -->
+        <div id="mainApp" class="main-app">
+            <nav class="sidebar">
+                <div class="sidebar-header">
+                    <i class="fas fa-stethoscope"></i>
+                    <h2>ClinicEase</h2>
+                </div>
+                <ul class="nav-menu" id="navMenu">
+                    <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
+                    <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
+                    <li data-view="medical-records"><i class="fas fa-notes-medical"></i><span>Medical Records</span></li>
+                    <!-- Admin-only items will be added dynamically -->
+                </ul>
+                <div class="sidebar-footer">
+                    <div class="user-info" id="userInfo"></div>
+                    <button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </nav>
+            <main class="main-content">
+                <div class="content-header">
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div id="viewContainer" class="view-container"></div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/patient.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
