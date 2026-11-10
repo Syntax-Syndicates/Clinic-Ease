@@ -11,7 +11,16 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/health"
+          "raw": "http://localhost:3000/api/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "health"
+          ]
         }
       },
       "response": []
@@ -28,7 +37,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/login"
+          "raw": "http://localhost:3000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -54,7 +73,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/login"
+          "raw": "http://localhost:3000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -80,7 +109,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/register"
+          "raw": "http://localhost:3000/api/auth/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -106,7 +145,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/me"
+          "raw": "http://localhost:3000/api/auth/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
         }
       },
       "response": []
@@ -128,7 +177,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/me"
+          "raw": "http://localhost:3000/api/auth/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -159,7 +218,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/auth/change-password"
+          "raw": "http://localhost:3000/api/auth/change-password",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "change-password"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -185,7 +254,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/patients"
+          "raw": "http://localhost:3000/api/patients",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "patients"
+          ]
         }
       },
       "response": []
@@ -202,7 +280,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+          "raw": "http://localhost:3000/api/patients/{{patientId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "patients",
+            "{{patientId}}"
+          ]
         }
       },
       "response": []
@@ -224,7 +312,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/patients"
+          "raw": "http://localhost:3000/api/patients",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "patients"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -255,7 +352,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+          "raw": "http://localhost:3000/api/patients/{{patientId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "patients",
+            "{{patientId}}"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -281,7 +388,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/patients/{{patientId}}"
+          "raw": "http://localhost:3000/api/patients/{{patientId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "patients",
+            "{{patientId}}"
+          ]
         }
       },
       "response": []
@@ -298,7 +415,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/doctors"
+          "raw": "http://localhost:3000/api/doctors",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "doctors"
+          ]
         }
       },
       "response": []
@@ -315,7 +441,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+          "raw": "http://localhost:3000/api/doctors/{{doctorId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "doctors",
+            "{{doctorId}}"
+          ]
         }
       },
       "response": []
@@ -337,7 +473,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/doctors"
+          "raw": "http://localhost:3000/api/doctors",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "doctors"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -368,7 +513,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+          "raw": "http://localhost:3000/api/doctors/{{doctorId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "doctors",
+            "{{doctorId}}"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -394,7 +549,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/doctors/{{doctorId}}"
+          "raw": "http://localhost:3000/api/doctors/{{doctorId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "doctors",
+            "{{doctorId}}"
+          ]
         }
       },
       "response": []
@@ -411,7 +576,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments"
+          "raw": "http://localhost:3000/api/appointments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments"
+          ]
         }
       },
       "response": []
@@ -428,7 +602,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+          "raw": "http://localhost:3000/api/appointments/{{appointmentId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments",
+            "{{appointmentId}}"
+          ]
         }
       },
       "response": []
@@ -450,7 +634,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments"
+          "raw": "http://localhost:3000/api/appointments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -481,7 +674,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments"
+          "raw": "http://localhost:3000/api/appointments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -512,7 +714,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+          "raw": "http://localhost:3000/api/appointments/{{appointmentId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments",
+            "{{appointmentId}}"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -538,7 +750,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+          "raw": "http://localhost:3000/api/appointments/{{appointmentId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "appointments",
+            "{{appointmentId}}"
+          ]
         }
       },
       "response": []
@@ -555,7 +777,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/medical-records/{{patientId}}"
+          "raw": "http://localhost:3000/api/medical-records/{{patientId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "medical-records",
+            "{{patientId}}"
+          ]
         }
       },
       "response": []
@@ -572,7 +804,18 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/medical-records/record/{{medicalRecordId}}"
+          "raw": "http://localhost:3000/api/medical-records/record/{{medicalRecordId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "medical-records",
+            "record",
+            "{{medicalRecordId}}"
+          ]
         }
       },
       "response": []
@@ -594,7 +837,16 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/medical-records"
+          "raw": "http://localhost:3000/api/medical-records",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "medical-records"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -625,7 +877,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/medical-records/{{medicalRecordId}}"
+          "raw": "http://localhost:3000/api/medical-records/{{medicalRecordId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "medical-records",
+            "{{medicalRecordId}}"
+          ]
         },
         "body": {
           "mode": "raw",
@@ -651,7 +913,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/medical-records/{{medicalRecordId}}"
+          "raw": "http://localhost:3000/api/medical-records/{{medicalRecordId}}",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "medical-records",
+            "{{medicalRecordId}}"
+          ]
         }
       },
       "response": []
@@ -668,7 +940,17 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/reports/appointments"
+          "raw": "http://localhost:3000/api/reports/appointments",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "reports",
+            "appointments"
+          ]
         }
       },
       "response": []
@@ -685,19 +967,23 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/reports/patients"
+          "raw": "http://localhost:3000/api/reports/patients",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "reports",
+            "patients"
+          ]
         }
       },
       "response": []
     }
   ],
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000",
-      "type": "default",
-      "enabled": true
-    },
     {
       "key": "adminToken",
       "value": "paste-admin-token-here",
