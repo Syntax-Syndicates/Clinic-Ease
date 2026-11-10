@@ -1,0 +1,62 @@
+ClinicEase/
+|-- backend/                         Backend API and server
+|   |-- config/
+|   |   `-- db.js                    Database connection configuration
+|   |-- controllers/                 Request handling and application logic
+|   |   |-- appointmentController.js
+|   |   |-- authController.js
+|   |   |-- doctorController.js
+|   |   |-- medicalRecordController.js
+|   |   |-- patientController.js
+|   |   `-- reportController.js
+|   |-- middleware/
+|   |   `-- auth.js                  Authentication middleware
+|   |-- models/                      Database access and data models
+|   |   |-- appointmentModel.js
+|   |   |-- doctorModel.js
+|   |   |-- medicalRecordModel.js
+|   |   |-- patientModel.js
+|   |   `-- userModel.js
+|   |-- routes/                      API route definitions
+|   |   |-- appointmentRoutes.js
+|   |   |-- authRoutes.js
+|   |   |-- doctorRoutes.js
+|   |   |-- medicalRecordRoutes.js
+|   |   |-- patientRoutes.js
+|   |   `-- reportRoutes.js
+|   |-- .env                         Local environment settings (not for sharing)
+|   |-- .env.example                 Example environment settings
+|   |-- .gitignore
+|   |-- ClinicEase.postman_collection.json
+|   |-- api-tests.http               HTTP API test requests
+|   |-- check-system.js
+|   |-- fix-passwords.js
+|   |-- package.json
+|   |-- package-lock.json
+|   |-- server.js                    Backend application entry point
+|   `-- test-pg.js
+|-- database/
+|   |-- advanced_features.sql        Additional database features
+|   `-- schema.sql                   Database schema
+|-- frontend/                        Browser application
+|   |-- css/
+|   |   `-- style.css
+|   |-- js/
+|   |   |-- admin.js
+|   |   |-- api.js
+|   |   |-- auth.js
+|   |   |-- components.js
+|   |   |-- main.js
+|   |   `-- patient.js
+|   `-- index.html
+|-- CRUD TESTING IN POSTMAN.txt      Manual API testing instructions
+|-- LICENSE
+|-- package.json                     Root-level project scripts
+|-- package-lock.json
+|-- README.md
+|-- test.txt
+`-- PROJECT_STRUCTURE.txt            This structure overview
+
+Notes:
+- node_modules directories are generated dependency folders and are omitted.
+- Keep secrets and local credentials out of shared files and source control.

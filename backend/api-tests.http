@@ -1,0 +1,265 @@
+@baseUrl = http://localhost:3000
+# Start the backend, then replace these values with tokens returned by the login requests.
+@adminToken = paste-admin-token-here
+@patientToken = paste-patient-token-here
+# Set these to account passwords from your local database before running login or password requests.
+@adminPassword = set-your-admin-password
+@patientPassword = set-your-patient-password
+@newPatientPassword = set-a-new-patient-password
+@currentPassword = set-your-current-password
+@newPassword = set-your-new-password
+# Replace the sample IDs with IDs from your database before testing updates or deletes.
+@patientId = 999999
+@doctorId = 999999
+@appointmentId = 999999
+@medicalRecordId = 999999
+
+### Health check (GET, no token required)
+GET {{baseUrl}}/api/health
+
+### Admin login (POST)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "{{adminPassword}}"
+}
+
+### Patient login (POST)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "juan123",
+  "password": "{{patientPassword}}"
+}
+
+### Register a patient account (POST, use a unique username each time)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newpatient01",
+  "password": "{{newPatientPassword}}",
+  "first_name": "Taylor",
+  "last_name": "Example",
+  "date_of_birth": "1998-04-12",
+  "gender": "Other",
+  "address": "Quezon City",
+  "contact_number": "09170000000",
+  "email": "taylor.example@example.com",
+  "blood_type": "O+",
+  "allergies": "None"
+}
+
+### Get the current user profile (GET, patient or admin token)
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{patientToken}}
+
+### Update the current patient's profile (PUT, patient token)
+PUT {{baseUrl}}/api/auth/me
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "address": "Makati City",
+  "contact_number": "09171112222"
+}
+
+### Change the current user's password (PUT, patient or admin token)
+PUT {{baseUrl}}/api/auth/change-password
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{currentPassword}}",
+  "newPassword": "{{newPassword}}"
+}
+
+### Get all patients (GET, admin token)
+GET {{baseUrl}}/api/patients
+Authorization: Bearer {{adminToken}}
+
+### Get a patient by ID (GET, admin token)
+GET {{baseUrl}}/api/patients/{{patientId}}
+Authorization: Bearer {{adminToken}}
+
+### Create a patient (POST, admin token)
+POST {{baseUrl}}/api/patients
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "username": "newpatient02",
+  "password": "{{newPatientPassword}}",
+  "first_name": "Alex",
+  "last_name": "Example",
+  "date_of_birth": "1997-08-21",
+  "gender": "Other",
+  "address": "Pasig City",
+  "contact_number": "09173334444",
+  "email": "alex.example@example.com",
+  "blood_type": "A+",
+  "allergies": "None"
+}
+
+### Update a patient (PUT, admin token; replace the sample ID before use)
+PUT {{baseUrl}}/api/patients/{{patientId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "first_name": "Juan",
+  "last_name": "Dela Cruz",
+  "date_of_birth": "1995-03-15",
+  "gender": "Male",
+  "address": "Quezon City",
+  "contact_number": "09171112222",
+  "email": "juan.delacruz@example.com",
+  "blood_type": "O+",
+  "allergies": "None"
+}
+
+### Soft-delete a patient (DELETE, admin token; replace the sample ID before use)
+DELETE {{baseUrl}}/api/patients/{{patientId}}
+Authorization: Bearer {{adminToken}}
+
+### Get all doctors (GET, patient or admin token)
+GET {{baseUrl}}/api/doctors
+Authorization: Bearer {{patientToken}}
+
+### Get a doctor by ID (GET, patient or admin token)
+GET {{baseUrl}}/api/doctors/{{doctorId}}
+Authorization: Bearer {{patientToken}}
+
+### Create a doctor (POST, admin token)
+POST {{baseUrl}}/api/doctors
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "first_name": "Morgan",
+  "last_name": "Example",
+  "specialization": "Family Medicine",
+  "schedule": "Mon-Fri 08:00-17:00",
+  "contact_number": "09175556666",
+  "email": "morgan.example@example.com"
+}
+
+### Update a doctor (PUT, admin token; replace the sample ID before use)
+PUT {{baseUrl}}/api/doctors/{{doctorId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "first_name": "Maria",
+  "last_name": "Reyes",
+  "specialization": "General Practitioner",
+  "schedule": "Mon-Fri 08:00-17:00",
+  "contact_number": "09171234567",
+  "email": "m.reyes@example.com"
+}
+
+### Soft-delete a doctor (DELETE, admin token; replace the sample ID before use)
+DELETE {{baseUrl}}/api/doctors/{{doctorId}}
+Authorization: Bearer {{adminToken}}
+
+### Get appointments (GET, admin gets all; patient gets their own)
+GET {{baseUrl}}/api/appointments
+Authorization: Bearer {{patientToken}}
+
+### Get an appointment by ID (GET, patient or admin token)
+GET {{baseUrl}}/api/appointments/{{appointmentId}}
+Authorization: Bearer {{patientToken}}
+
+### Create an appointment as a patient (POST, patient token)
+POST {{baseUrl}}/api/appointments
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "doctor_id": 1,
+  "appointment_date": "2026-12-01",
+  "appointment_time": "09:30:00",
+  "notes": "Annual checkup"
+}
+
+### Create an appointment as an admin (POST, admin token)
+POST {{baseUrl}}/api/appointments
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "patient_id": 1,
+  "doctor_id": 1,
+  "appointment_date": "2026-12-02",
+  "appointment_time": "14:00:00",
+  "status": "confirmed",
+  "notes": "Follow-up visit"
+}
+
+### Update an appointment (PUT, admin token; replace the sample ID before use)
+PUT {{baseUrl}}/api/appointments/{{appointmentId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "patient_id": 1,
+  "doctor_id": 1,
+  "appointment_date": "2026-12-03",
+  "appointment_time": "11:00:00",
+  "status": "confirmed",
+  "notes": "Rescheduled follow-up"
+}
+
+### Soft-delete an appointment (DELETE, patient or admin token; replace the sample ID before use)
+DELETE {{baseUrl}}/api/appointments/{{appointmentId}}
+Authorization: Bearer {{patientToken}}
+
+### Get a patient's medical records (GET, patient can only view their own)
+GET {{baseUrl}}/api/medical-records/{{patientId}}
+Authorization: Bearer {{patientToken}}
+
+### Get a medical record by ID (GET, admin token)
+GET {{baseUrl}}/api/medical-records/record/{{medicalRecordId}}
+Authorization: Bearer {{adminToken}}
+
+### Create a medical record (POST, admin token; use an appointment without a record)
+POST {{baseUrl}}/api/medical-records
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "appointment_id": 3,
+  "patient_id": 1,
+  "doctor_id": 3,
+  "diagnosis": "Seasonal allergies",
+  "prescription": "As directed by the physician",
+  "consultation_notes": "Patient advised to follow up if symptoms persist.",
+  "follow_up_date": "2026-12-10"
+}
+
+### Update a medical record (PUT, admin token; replace the sample ID before use)
+PUT {{baseUrl}}/api/medical-records/{{medicalRecordId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "diagnosis": "Seasonal allergies",
+  "prescription": "Updated treatment plan",
+  "consultation_notes": "Symptoms improving.",
+  "follow_up_date": "2026-12-17"
+}
+
+### Soft-delete a medical record (DELETE, admin token; replace the sample ID before use)
+DELETE {{baseUrl}}/api/medical-records/{{medicalRecordId}}
+Authorization: Bearer {{adminToken}}
+
+### Get appointment report (GET, admin token)
+GET {{baseUrl}}/api/reports/appointments
+Authorization: Bearer {{adminToken}}
+
+### Get patient report (GET, admin token)
+GET {{baseUrl}}/api/reports/patients
+Authorization: Bearer {{adminToken}}

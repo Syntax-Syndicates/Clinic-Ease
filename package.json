@@ -1,0 +1,11 @@
+{
+  "name": "clinicease",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix backend run dev",
+    "check": "npm --prefix backend run check"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0"
+  }
+}

@@ -1,0 +1,153 @@
+CRUD TEXT TESTING IN POSTMAN
+
+Login as Admin:
+POST http://localhost:3000/api/auth/login
+Body (JSON):
+
+json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+Copy the returned token.(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsInBhdGllbnRJZCI6bnVsbCwiaWF0IjoxNzc5MjU4OTg4LCJleHAiOjE3NzkzNDUzODh9.LcEo6VUlhle7VJlfNitVnzcz729uB-fPtUdZpK-Wh8w
+
+Test GET all patients (requires token in Authorization header):
+GET http://localhost:3000/api/patients
+Headers: Authorization: Bearer <your-token>( DONE)
+
+
+
+Patient Login:
+POST http://localhost:3000/api/auth/login
+
+Username: juan123
+
+Password: password123
+
+
+
+📌 Get all doctors (GET /doctors)
+Method: GET
+
+URL: http://localhost:3000/api/doctors
+
+Headers:
+Authorization: Bearer <your_admin_or_patient_token>
+
+Body: none
+
+
+
+📌 Create a new appointment (POST /appointments)
+You can do this as either admin or patient.
+If you are a patient, the patient_id is automatically taken from your token; you don't need to send it.
+If you are admin, you must include patient_id.
+
+As patient (logged in as juan123)
+Method: POST
+
+URL: http://localhost:3000/api/appointments
+
+Headers: Authorization: Bearer <patient_token>
+
+Body (raw JSON):
+
+json
+{
+    "doctor_id": 1,
+    "appointment_date": "2026-06-01",
+    "appointment_time": "09:30:00",
+    "notes": "Annual physical exam"
+}
+
+
+
+As admin (logged in as admin)
+URL: same
+
+Headers: Authorization: Bearer <admin_token>
+
+Body: (include patient_id)
+
+json
+{
+    "patient_id": 1,
+    "doctor_id": 2,
+    "appointment_date": "2026-06-02",
+    "appointment_time": "14:00:00",
+    "status": "confirmed",
+    "notes": "Follow-up"
+}
+
+
+
+📌 Update an appointment (PUT /appointments/:id) – admin only
+Method: PUT
+
+URL: http://localhost:3000/api/appointments/1
+(replace 1 with actual appointment ID)
+
+Headers: Authorization: Bearer <admin_token>
+
+Body (raw JSON):
+
+json
+{
+    "patient_id": 1,
+    "doctor_id": 1,
+    "appointment_date": "2026-06-10",
+    "appointment_time": "11:00:00",
+    "status": "completed",
+    "notes": "Completed checkup - all good"
+}
+
+
+
+📌 Soft delete a patient (DELETE /patients/:id) – admin only
+Method: DELETE
+
+URL: http://localhost:3000/api/patients/2
+(replace 2 with patient ID you want to soft delete)
+
+Headers: Authorization: Bearer <admin_token>
+
+Body: none
+
+After deletion, a GET /api/patients will no longer show that patient (because is_deleted = true in the database).
+
+📌 Soft delete a doctor (DELETE /doctors/:id) – admin only
+Method: DELETE
+
+URL: http://localhost:3000/api/doctors/3
+
+Headers: Authorization: Bearer <admin_token>
+
+Body: none
+
+📌 Get medical records for a patient (GET /medical-records/:patientId)
+Method: GET
+
+URL: http://localhost:3000/api/medical-records/1
+(patientId = 1 is Juan Dela Cruz)
+
+Headers: Authorization: Bearer <token> (patient can only view own records; admin can view any)
+
+Body: none
+
+📌 Get appointment report (GET /reports/appointments) – admin only
+Method: GET
+
+URL: http://localhost:3000/api/reports/appointments
+
+Headers: Authorization: Bearer <admin_token>
+
+Body: none
+
+📌 Get patient statistics report (GET /reports/patients) – admin only
+Method: GET
+
+URL: http://localhost:3000/api/reports/patients
+
+Headers: Authorization: Bearer <admin_token>
+
+Body: none
