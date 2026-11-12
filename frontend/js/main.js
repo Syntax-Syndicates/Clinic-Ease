@@ -209,29 +209,93 @@ const app = {
         const patients = window.currentUser.role === 'admin' ? await api.getPatients() : [];
         const doctorOptions = doctors.map(d => `<option value="${d.id}">Dr. ${d.first_name} ${d.last_name} - ${d.specialization}</option>`).join('');
         const patientOptions = window.currentUser.role === 'admin' ? patients.map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('') : '';
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         const content = `
             ${window.currentUser.role === 'admin' ? `<div class="form-group"><label>Patient</label><select id="patient_id">${patientOptions}</select></div>` : ''}
-            <div class="form-group"><label>Doctor</label><select id="doctor_id">${doctorOptions}</select></div>
-            <div class="form-group"><label>Date</label><input type="date" id="appointment_date" required></div>
-            <div class="form-group"><label>Time</label><input type="time" id="appointment_time" required></div>
+            <div class="form-group"><label>Doctor</label><select id="doctor_id"><option value="">Select a doctor</option>${doctorOptions}</select></div>
+            <div class="form-group"><label>Date</label><input type="date" id="appointment_date" min="${today}" required></div>
+            <div class="form-group">
+                <label>Available time</label>
+                <select id="appointment_time" required disabled><option value="">Choose a doctor and date first</option></select>
+                <small id="availability_message">Choose a doctor and date to see available times.</small>
+            </div>
             <div class="form-group"><label>Notes</label><textarea id="notes"></textarea></div>
         `;
 
         components.showModal('Book Appointment', content, async () => {
+            const appointmentTime = document.getElementById('appointment_time').value;
+            if (!appointmentTime) {
+                alert('Please select an available appointment time.');
+                return;
+            }
             const data = {
                 doctor_id: document.getElementById('doctor_id').value,
                 appointment_date: document.getElementById('appointment_date').value,
-                appointment_time: document.getElementById('appointment_time').value,
+                appointment_time: appointmentTime,
                 notes: document.getElementById('notes').value,
             };
             if (window.currentUser.role === 'admin') {
                 data.patient_id = document.getElementById('patient_id').value;
             }
-            await api.createAppointment(data);
+            try {
+                await api.createAppointment(data);
+            } catch (error) {
+                await loadAvailability();
+                throw error;
+            }
             alert('Appointment booked successfully');
             app.loadView('appointments');
         });
+
+        const doctorSelect = document.getElementById('doctor_id');
+        const dateInput = document.getElementById('appointment_date');
+        const timeSelect = document.getElementById('appointment_time');
+        const message = document.getElementById('availability_message');
+        let availabilityRequest = 0;
+
+        const loadAvailability = async () => {
+            const requestId = ++availabilityRequest;
+            const doctorId = doctorSelect.value;
+            const date = dateInput.value;
+            timeSelect.replaceChildren();
+
+            if (!doctorId || !date) {
+                timeSelect.disabled = true;
+                timeSelect.add(new Option('Choose a doctor and date first', ''));
+                message.textContent = 'Choose a doctor and date to see available times.';
+                return;
+            }
+
+            timeSelect.disabled = true;
+            timeSelect.add(new Option('Loading available times...', ''));
+            message.textContent = 'Checking availability...';
+            try {
+                const availability = await api.getAppointmentAvailability(doctorId, date);
+                if (requestId !== availabilityRequest) return;
+                timeSelect.replaceChildren();
+                if (availability.available_slots.length === 0) {
+                    timeSelect.add(new Option('No available times', ''));
+                    message.textContent = 'No appointment times are available for this doctor and date.';
+                    return;
+                }
+
+                timeSelect.add(new Option('Select a time', ''));
+                availability.available_slots.forEach((time) => {
+                    timeSelect.add(new Option(time, time));
+                });
+                timeSelect.disabled = false;
+                message.textContent = `${availability.slot_duration_minutes}-minute appointment slots.`;
+            } catch (error) {
+                if (requestId !== availabilityRequest) return;
+                timeSelect.replaceChildren(new Option('Availability unavailable', ''));
+                message.textContent = error.message;
+            }
+        };
+
+        doctorSelect.addEventListener('change', loadAvailability);
+        dateInput.addEventListener('change', loadAvailability);
     },
 
     async editAppointment(id) {

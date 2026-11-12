@@ -19,9 +19,13 @@ const components = {
             </div>
         `;
         modal.classList.add('active');
-        document.getElementById('modalSubmit').onclick = () => {
-            onSubmit();
-            modal.classList.remove('active');
+        document.getElementById('modalSubmit').onclick = async () => {
+            try {
+                await onSubmit();
+                modal.classList.remove('active');
+            } catch (error) {
+                alert(error.message || 'The operation failed.');
+            }
         };
         document.getElementById('modalClose').onclick = () => {
             modal.classList.remove('active');

@@ -11,6 +11,7 @@ router.get('/', verifyToken, (req, res, next) => {
         appointmentController.getUserAppointments(req, res, next);
     }
 });
+router.get('/availability', verifyToken, appointmentController.getAppointmentAvailability);
 router.get('/:id', verifyToken, appointmentController.getAppointmentById);
 router.post('/', verifyToken, appointmentController.createAppointment);
 router.put('/:id', verifyToken, checkRole(['admin']), appointmentController.updateAppointment);

@@ -83,6 +83,9 @@ class API {
     // Appointments
     getAppointments() { return this.request('/appointments'); }
     getAppointmentById(id) { return this.request(`/appointments/${id}`); }
+    getAppointmentAvailability(doctorId, date) {
+        return this.request(`/appointments/availability?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`);
+    }
     createAppointment(data) { return this.request('/appointments', { method: 'POST', body: JSON.stringify(data) }); }
     updateAppointment(id, data) { return this.request(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     deleteAppointment(id) { return this.request(`/appointments/${id}`, { method: 'DELETE' }); }
