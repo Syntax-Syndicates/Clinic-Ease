@@ -207,4 +207,5 @@ module.exports = {
     hasOverlap,
     parseDate,
     parseTime,
+    parseSchedule,
 };

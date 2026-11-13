@@ -62,6 +62,9 @@ class API {
     updateProfile(data) {
         return this.request('/auth/me', { method: 'PUT', body: JSON.stringify(data) });
     }
+    updateDoctorUsername(username) {
+        return this.request('/auth/username', { method: 'PUT', body: JSON.stringify({ username }) });
+    }
     changePassword(currentPassword, newPassword) {
         return this.request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
     }
@@ -78,6 +81,7 @@ class API {
     getDoctorById(id) { return this.request(`/doctors/${id}`); }
     createDoctor(data) { return this.request('/doctors', { method: 'POST', body: JSON.stringify(data) }); }
     updateDoctor(id, data) { return this.request(`/doctors/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
+    setDoctorActive(id, isActive) { return this.request(`/doctors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ is_active: isActive }) }); }
     deleteDoctor(id) { return this.request(`/doctors/${id}`, { method: 'DELETE' }); }
 
     // Appointments
@@ -89,6 +93,12 @@ class API {
     createAppointment(data) { return this.request('/appointments', { method: 'POST', body: JSON.stringify(data) }); }
     updateAppointment(id, data) { return this.request(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     deleteAppointment(id) { return this.request(`/appointments/${id}`, { method: 'DELETE' }); }
+    decideAppointment(id, decision, rejectionReason = null) {
+        return this.request(`/appointments/${id}/decision`, {
+            method: 'POST',
+            body: JSON.stringify({ decision, rejection_reason: rejectionReason }),
+        });
+    }
 
     // Medical Records
     getMedicalRecords(patientId) { return this.request(`/medical-records/${patientId}`); }

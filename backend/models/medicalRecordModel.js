@@ -33,9 +33,9 @@ const getMedicalRecordByAppointmentId = async (appointmentId) => {
     return result.rows[0];
 };
 
-const createMedicalRecord = async (recordData) => {
+const createMedicalRecord = async (recordData, client = db) => {
     const { appointment_id, patient_id, doctor_id, diagnosis, prescription, consultation_notes, follow_up_date } = recordData;
-    const result = await db.query(
+    const result = await client.query(
         `INSERT INTO medical_records (appointment_id, patient_id, doctor_id, diagnosis, prescription, consultation_notes, follow_up_date)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
         [appointment_id, patient_id, doctor_id, diagnosis, prescription, consultation_notes, follow_up_date]

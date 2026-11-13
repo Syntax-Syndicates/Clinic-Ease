@@ -1,5 +1,15 @@
 // frontend/js/components.js
 const components = {
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        })[character]);
+    },
+
     showModal(title, content, onSubmit) {
         let modal = document.getElementById('dynamicModal');
         if (!modal) {
@@ -10,7 +20,7 @@ const components = {
         }
         modal.innerHTML = `
             <div class="modal-content">
-                <h2>${title}</h2>
+                <h2>${this.escapeHtml(title)}</h2>
                 ${content}
                 <div style="margin-top: 20px; display: flex; gap: 10px;">
                     <button class="btn-primary" id="modalSubmit">Submit</button>
@@ -21,8 +31,8 @@ const components = {
         modal.classList.add('active');
         document.getElementById('modalSubmit').onclick = async () => {
             try {
-                await onSubmit();
-                modal.classList.remove('active');
+                const submitted = await onSubmit();
+                if (submitted !== false) modal.classList.remove('active');
             } catch (error) {
                 alert(error.message || 'The operation failed.');
             }
@@ -41,7 +51,11 @@ const components = {
         const toClass = (name) => name.toString().trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/[^a-z0-9\-]/g, '');
         const toLabel = (name) => name.toString().trim().replace(/[_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         const formatValue = (col, value) => {
-            if (!value) return '-';
+            if (value === null || value === undefined || value === '') return '-';
+            if (typeof value === 'boolean') {
+                if (col === 'has_account') return value ? 'Yes' : 'No';
+                return value ? 'Active' : 'Inactive';
+            }
             if (col === 'appointment_date' || col === 'date_of_birth' || col === 'follow_up_date') {
                 const date = new Date(value);
                 return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -54,7 +68,10 @@ const components = {
                 const displayHour = hour % 12 || 12;
                 return `${displayHour}:${minutes} ${ampm}`;
             }
-            return value;
+            if (col === 'status') {
+                return this.escapeHtml(value.toString().charAt(0).toUpperCase() + value.toString().slice(1));
+            }
+            return this.escapeHtml(value);
         };
         return `
             <table>

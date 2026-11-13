@@ -10,9 +10,9 @@ BEGIN
          AND b.appointment_date = a.appointment_date
          AND b.id > a.id
         WHERE a.is_deleted = FALSE
-          AND a.status IS DISTINCT FROM 'cancelled'
+          AND a.status NOT IN ('cancelled', 'rejected')
           AND b.is_deleted = FALSE
-          AND b.status IS DISTINCT FROM 'cancelled'
+          AND b.status NOT IN ('cancelled', 'rejected')
           AND (a.appointment_date + a.appointment_time)
               < (b.appointment_date + b.appointment_time + INTERVAL '30 minutes')
           AND (b.appointment_date + b.appointment_time)
@@ -25,4 +25,4 @@ $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_appointments_active_doctor_slot
     ON appointments (doctor_id, appointment_date, appointment_time)
-    WHERE is_deleted = FALSE AND status IS DISTINCT FROM 'cancelled';
+    WHERE is_deleted = FALSE AND status NOT IN ('cancelled', 'rejected');

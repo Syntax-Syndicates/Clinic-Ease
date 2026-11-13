@@ -23,7 +23,16 @@ const respondWithAppointmentError = (res, error, fallbackMessage) => {
 
 const getAllAppointments = async (req, res) => {
     try {
-        const appointments = await appointmentModel.getAllAppointments();
+        let appointments;
+        if (req.user.role === 'admin') {
+            appointments = await appointmentModel.getAllAppointments();
+        } else if (req.user.role === 'doctor') {
+            appointments = await appointmentModel.getAppointmentsByDoctorId(req.user.doctorId);
+        } else {
+            const patientId = req.user.patientId;
+            if (!patientId) return res.status(400).json({ error: 'No patient profile found' });
+            appointments = await appointmentModel.getAppointmentsByPatientId(patientId);
+        }
         res.json(appointments);
     } catch (error) {
         console.error(error);
@@ -51,6 +60,12 @@ const getAppointmentById = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ error: 'Appointment not found' });
         }
+        if (req.user.role === 'patient' && Number(appointment.patient_id) !== Number(req.user.patientId)) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
+        if (req.user.role === 'doctor' && Number(appointment.doctor_id) !== Number(req.user.doctorId)) {
+            return res.status(404).json({ error: 'Appointment not found' });
+        }
         res.json(appointment);
     } catch (error) {
         console.error(error);
@@ -60,6 +75,9 @@ const getAppointmentById = async (req, res) => {
 
 const getAppointmentAvailability = async (req, res) => {
     try {
+        if (!['patient', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({ error: 'Only patients and administrators can check booking availability.' });
+        }
         const { doctor_id, date } = req.query;
         if (!validId(doctor_id)) {
             return res.status(400).json({ error: 'doctor_id must be a positive integer.' });
@@ -77,6 +95,9 @@ const getAppointmentAvailability = async (req, res) => {
 
 const createAppointment = async (req, res) => {
     try {
+        if (!['patient', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({ error: 'Only patients and administrators can book appointments.' });
+        }
         const { doctor_id, appointment_date, appointment_time } = req.body;
         if (!validId(doctor_id)) {
             return res.status(400).json({ error: 'doctor_id must be a positive integer.' });
@@ -100,18 +121,14 @@ const createAppointment = async (req, res) => {
             return res.status(400).json({ error: 'patient_id must be a positive integer.' });
         }
 
-        const status = req.user.role === 'patient' ? 'pending' : (req.body.status || 'pending');
-        if (!['pending', 'confirmed'].includes(status)) {
-            return res.status(400).json({ error: 'New appointments must be pending or confirmed.' });
-        }
         const appointmentData = {
             ...req.body,
             patient_id: Number(patient_id),
             doctor_id: Number(doctor_id),
-            status,
+            status: 'pending',
         };
         const id = await appointmentModel.createAppointment(appointmentData);
-        res.status(201).json({ message: 'Appointment booked successfully', id });
+        res.status(201).json({ message: 'Appointment request submitted and is pending doctor approval.', id, status: 'pending' });
     } catch (error) {
         return respondWithAppointmentError(res, error, 'Failed to create appointment');
     }
@@ -126,10 +143,13 @@ const updateAppointment = async (req, res) => {
         if (!appointment_date || !appointment_time || !status) {
             return res.status(400).json({ error: 'Date, time, and status are required.' });
         }
-        if (!['pending', 'confirmed', 'completed', 'cancelled'].includes(status)) {
+        if (!['pending', 'approved', 'rejected', 'completed', 'cancelled'].includes(status)) {
             return res.status(400).json({ error: 'Invalid appointment status.' });
         }
-        parseDate(appointment_date, new Date(), status === 'cancelled');
+        if (status === 'rejected' && !String(req.body.rejection_reason || '').trim()) {
+            return res.status(400).json({ error: 'A rejection reason is required.' });
+        }
+        parseDate(appointment_date, new Date(), ['cancelled', 'rejected', 'completed'].includes(status));
         parseTime(appointment_time, status !== 'cancelled');
         await appointmentModel.updateAppointment(Number(req.params.id), {
             ...req.body,
@@ -144,11 +164,55 @@ const updateAppointment = async (req, res) => {
 
 const deleteAppointment = async (req, res) => {
     try {
-        await appointmentModel.deleteAppointment(req.params.id);
-        res.json({ message: 'Appointment cancelled (soft delete) successfully' });
+        if (!validId(req.params.id)) {
+            return res.status(400).json({ error: 'Appointment ID must be a positive integer.' });
+        }
+        if (req.user.role === 'patient' && !validId(req.user.patientId)) {
+            return res.status(400).json({ error: 'Patient profile not found.' });
+        }
+        const result = await appointmentModel.cancelAppointment(
+            req.params.id,
+            req.user.role === 'patient' ? req.user.patientId : null
+        );
+        if (result === 'not_found' || result === 'forbidden') {
+            return res.status(404).json({ error: 'Appointment not found.' });
+        }
+        if (result === 'not_cancellable') {
+            return res.status(409).json({ error: 'Only pending or approved appointments can be cancelled.' });
+        }
+        res.json({ message: 'Appointment cancelled successfully', status: 'cancelled' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to cancel appointment' });
+    }
+};
+
+const decideAppointment = async (req, res) => {
+    try {
+        if (!validId(req.params.id)) {
+            return res.status(400).json({ error: 'Appointment ID must be a positive integer.' });
+        }
+        const { decision, rejection_reason } = req.body;
+        if (!['approved', 'rejected'].includes(decision)) {
+            return res.status(400).json({ error: 'Decision must be approved or rejected.' });
+        }
+        const reason = typeof rejection_reason === 'string' ? rejection_reason.trim() : '';
+        if (decision === 'rejected' && !reason) {
+            return res.status(400).json({ error: 'A rejection reason is required.' });
+        }
+        const result = await appointmentModel.decideAppointment(
+            req.params.id,
+            req.user.doctorId,
+            decision,
+            decision === 'rejected' ? reason : null
+        );
+        if (result === 'not_found') return res.status(404).json({ error: 'Appointment not found.' });
+        if (result === 'forbidden') return res.status(403).json({ error: 'You cannot manage appointments assigned to another doctor.' });
+        if (result === 'not_pending') return res.status(409).json({ error: 'Only pending appointments can be approved or rejected.' });
+        res.json({ message: `Appointment ${decision}.`, status: decision });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to update appointment decision.' });
     }
 };
 
@@ -160,4 +224,5 @@ module.exports = {
     createAppointment,
     updateAppointment,
     deleteAppointment,
+    decideAppointment,
 };

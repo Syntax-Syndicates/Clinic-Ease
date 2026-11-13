@@ -1,4 +1,3 @@
-// backend/models/appointmentModel.js
 const db = require('../config/db');
 const {
     AvailabilityError,
@@ -8,14 +7,19 @@ const {
     SLOT_DURATION_MINUTES,
 } = require('../utils/appointmentAvailability');
 
+const appointmentSelect = `
+    SELECT a.*,
+           p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+           p.email AS patient_email, p.contact_number AS patient_contact_number,
+           d.first_name AS doctor_first_name, d.last_name AS doctor_last_name,
+           d.specialization, d.email AS doctor_email, d.contact_number AS doctor_contact_number
+    FROM appointments a
+    JOIN patients p ON a.patient_id = p.id
+    JOIN doctors d ON a.doctor_id = d.id`;
+
 const getAllAppointments = async () => {
     const result = await db.query(
-        `SELECT a.*,
-                p.first_name as patient_first_name, p.last_name as patient_last_name,
-                d.first_name as doctor_first_name, d.last_name as doctor_last_name
-         FROM appointments a
-         JOIN patients p ON a.patient_id = p.id
-         JOIN doctors d ON a.doctor_id = d.id
+        `${appointmentSelect}
          WHERE a.is_deleted = FALSE
          ORDER BY a.appointment_date DESC, a.appointment_time ASC`
     );
@@ -24,13 +28,7 @@ const getAllAppointments = async () => {
 
 const getAppointmentsByPatientId = async (patientId) => {
     const result = await db.query(
-        `SELECT a.*,
-                p.first_name as patient_first_name, p.last_name as patient_last_name,
-                d.first_name as doctor_first_name, d.last_name as doctor_last_name,
-                d.specialization
-         FROM appointments a
-         JOIN patients p ON a.patient_id = p.id
-         JOIN doctors d ON a.doctor_id = d.id
+        `${appointmentSelect}
          WHERE a.patient_id = $1 AND a.is_deleted = FALSE
          ORDER BY a.appointment_date DESC, a.appointment_time ASC`,
         [patientId]
@@ -38,14 +36,19 @@ const getAppointmentsByPatientId = async (patientId) => {
     return result.rows;
 };
 
+const getAppointmentsByDoctorId = async (doctorId) => {
+    const result = await db.query(
+        `${appointmentSelect}
+         WHERE a.doctor_id = $1 AND a.is_deleted = FALSE
+         ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
+        [doctorId]
+    );
+    return result.rows;
+};
+
 const getAppointmentById = async (id) => {
     const result = await db.query(
-        `SELECT a.*,
-                p.first_name as patient_first_name, p.last_name as patient_last_name,
-                d.first_name as doctor_first_name, d.last_name as doctor_last_name
-         FROM appointments a
-         JOIN patients p ON a.patient_id = p.id
-         JOIN doctors d ON a.doctor_id = d.id
+        `${appointmentSelect}
          WHERE a.id = $1 AND a.is_deleted = FALSE`,
         [id]
     );
@@ -54,18 +57,15 @@ const getAppointmentById = async (id) => {
 
 const getAppointmentAvailability = async (doctorId, appointmentDate) => {
     const doctorResult = await db.query(
-        'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE',
+        'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
         [doctorId]
     );
     if (!doctorResult.rows[0]) return null;
 
     const appointmentResult = await db.query(
-        `SELECT appointment_time
-         FROM appointments
-         WHERE doctor_id = $1
-           AND appointment_date = $2
-           AND is_deleted = FALSE
-           AND status IS DISTINCT FROM 'cancelled'`,
+        `SELECT appointment_time FROM appointments
+         WHERE doctor_id = $1 AND appointment_date = $2 AND is_deleted = FALSE
+           AND status NOT IN ('cancelled', 'rejected')`,
         [doctorId, appointmentDate]
     );
 
@@ -94,11 +94,11 @@ const createAppointment = async (appointmentData) => {
         );
 
         const doctorResult = await client.query(
-            'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE',
+            'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
             [doctor_id]
         );
         if (!doctorResult.rows[0]) {
-            throw new AvailabilityError('Doctor not found.', 404);
+            throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
         }
         const start = assertAppointmentAvailableBySchedule(
             doctorResult.rows[0].schedule,
@@ -115,12 +115,9 @@ const createAppointment = async (appointmentData) => {
         }
 
         const occupiedResult = await client.query(
-            `SELECT appointment_time
-             FROM appointments
-             WHERE doctor_id = $1
-               AND appointment_date = $2
-               AND is_deleted = FALSE
-               AND status IS DISTINCT FROM 'cancelled'`,
+            `SELECT appointment_time FROM appointments
+             WHERE doctor_id = $1 AND appointment_date = $2 AND is_deleted = FALSE
+               AND status NOT IN ('cancelled', 'rejected')`,
             [doctor_id, appointment_date]
         );
         if (hasOverlap(
@@ -131,7 +128,8 @@ const createAppointment = async (appointmentData) => {
         }
 
         const result = await client.query(
-            `INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
+            `INSERT INTO appointments
+                (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
             [patient_id, doctor_id, appointment_date, appointment_time, status || 'pending', notes || null]
         );
@@ -146,7 +144,7 @@ const createAppointment = async (appointmentData) => {
 };
 
 const updateAppointment = async (id, appointmentData) => {
-    const { patient_id, doctor_id, appointment_date, appointment_time, status, notes } = appointmentData;
+    const { patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason } = appointmentData;
     const client = await db.connect();
     let transactionStarted = false;
     try {
@@ -165,13 +163,13 @@ const updateAppointment = async (id, appointmentData) => {
             throw new AvailabilityError('Appointment not found.', 404);
         }
 
-        if (status !== 'cancelled') {
+        if (!['cancelled', 'rejected', 'completed'].includes(status)) {
             const doctorResult = await client.query(
-                'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE',
+                'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
                 [doctor_id]
             );
             if (!doctorResult.rows[0]) {
-                throw new AvailabilityError('Doctor not found.', 404);
+                throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
             }
             const start = assertAppointmentAvailableBySchedule(
                 doctorResult.rows[0].schedule,
@@ -179,13 +177,9 @@ const updateAppointment = async (id, appointmentData) => {
                 appointment_time
             );
             const occupiedResult = await client.query(
-                `SELECT appointment_time
-                 FROM appointments
-                 WHERE doctor_id = $1
-                   AND appointment_date = $2
-                   AND id <> $3
-                   AND is_deleted = FALSE
-                   AND status IS DISTINCT FROM 'cancelled'`,
+                `SELECT appointment_time FROM appointments
+                 WHERE doctor_id = $1 AND appointment_date = $2 AND id <> $3
+                   AND is_deleted = FALSE AND status NOT IN ('cancelled', 'rejected')`,
                 [doctor_id, appointment_date, id]
             );
             if (hasOverlap(
@@ -198,9 +192,10 @@ const updateAppointment = async (id, appointmentData) => {
 
         await client.query(
             `UPDATE appointments SET
-                patient_id = $1, doctor_id = $2, appointment_date = $3, appointment_time = $4, status = $5, notes = $6
-             WHERE id = $7`,
-            [patient_id, doctor_id, appointment_date, appointment_time, status, notes, id]
+                patient_id = $1, doctor_id = $2, appointment_date = $3, appointment_time = $4,
+                status = $5, notes = $6, rejection_reason = $7
+             WHERE id = $8`,
+            [patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason || null, id]
         );
         await client.query('COMMIT');
     } catch (error) {
@@ -211,16 +206,49 @@ const updateAppointment = async (id, appointmentData) => {
     }
 };
 
-const deleteAppointment = async (id) => {
-    await db.query('UPDATE appointments SET is_deleted = TRUE WHERE id = $1', [id]);
+const decideAppointment = async (id, doctorId, status, rejectionReason = null) => {
+    const result = await db.query(
+        `UPDATE appointments SET status = $1, rejection_reason = $2
+         WHERE id = $3 AND doctor_id = $4 AND status = 'pending' AND is_deleted = FALSE
+         RETURNING id`,
+        [status, rejectionReason, id, doctorId]
+    );
+    if (result.rows[0]) return 'updated';
+    const existing = await db.query(
+        'SELECT doctor_id, status FROM appointments WHERE id = $1 AND is_deleted = FALSE',
+        [id]
+    );
+    if (!existing.rows[0]) return 'not_found';
+    if (Number(existing.rows[0].doctor_id) !== Number(doctorId)) return 'forbidden';
+    return 'not_pending';
+};
+
+const cancelAppointment = async (id, patientId = null) => {
+    const result = await db.query(
+        `UPDATE appointments SET status = 'cancelled'
+         WHERE id = $1 AND ($2::integer IS NULL OR patient_id = $2)
+           AND is_deleted = FALSE AND status IN ('pending', 'approved')
+         RETURNING id`,
+        [id, patientId]
+    );
+    if (result.rows[0]) return 'cancelled';
+    const existing = await db.query(
+        'SELECT patient_id FROM appointments WHERE id = $1 AND is_deleted = FALSE',
+        [id]
+    );
+    if (!existing.rows[0]) return 'not_found';
+    if (patientId && Number(existing.rows[0].patient_id) !== Number(patientId)) return 'forbidden';
+    return 'not_cancellable';
 };
 
 module.exports = {
     getAllAppointments,
     getAppointmentsByPatientId,
+    getAppointmentsByDoctorId,
     getAppointmentById,
     getAppointmentAvailability,
     createAppointment,
     updateAppointment,
-    deleteAppointment,
+    decideAppointment,
+    cancelAppointment,
 };

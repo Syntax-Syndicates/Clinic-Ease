@@ -131,11 +131,11 @@ const adminView = {
                 <button class="btn-add" onclick="adminView.showAddDoctorModal()">+ Add New Doctor</button>
                 <div class="data-table">
                     ${components.renderTable(
-                        ['id', 'first_name', 'last_name', 'specialization', 'schedule', 'contact_number', 'email'],
+                        ['id', 'first_name', 'last_name', 'specialization', 'schedule', 'contact_number', 'email', 'has_account', 'is_active'],
                         doctors,
                         (row) => `
                             <button class="action-btn btn-edit" onclick="adminView.showEditDoctorModal(${row.id})">Edit</button>
-                            <button class="action-btn btn-delete" onclick="adminView.deleteDoctor(${row.id})">Delete</button>
+                            <button class="action-btn ${row.is_active ? 'btn-delete' : 'btn-edit'}" onclick="adminView.setDoctorActive(${row.id}, ${!row.is_active})">${row.is_active ? 'Deactivate' : 'Activate'}</button>
                         `
                     )}
                 </div>
@@ -149,26 +149,28 @@ const adminView = {
         const content = `
             <div class="form-group"><label>First Name*</label><input type="text" id="doc_first_name" required></div>
             <div class="form-group"><label>Last Name*</label><input type="text" id="doc_last_name" required></div>
-            <div class="form-group"><label>Specialization</label><input type="text" id="doc_specialization"></div>
-            <div class="form-group"><label>Schedule</label><input type="text" id="doc_schedule" placeholder="e.g., Mon-Fri 9am-5pm"></div>
-            <div class="form-group"><label>Contact Number</label><input type="text" id="doc_contact"></div>
-            <div class="form-group"><label>Email</label><input type="email" id="doc_email"></div>
+            <div class="form-group"><label>Specialization*</label><input type="text" id="doc_specialization" required></div>
+            <div class="form-group"><label>Schedule*</label><input type="text" id="doc_schedule" placeholder="e.g., Mon-Fri 9am-5pm" required></div>
+            <div class="form-group"><label>Contact Number</label><input type="tel" id="doc_contact"></div>
+            <div class="form-group"><label>Email / Login Username*</label><input type="email" id="doc_email" required></div>
+            <div class="form-group"><label>Temporary Password*</label><input type="password" id="doc_password" minlength="6" required></div>
         `;
         components.showModal('Add Doctor', content, async () => {
             const data = {
-                first_name: document.getElementById('doc_first_name').value,
-                last_name: document.getElementById('doc_last_name').value,
-                specialization: document.getElementById('doc_specialization').value || null,
-                schedule: document.getElementById('doc_schedule').value || null,
+                first_name: document.getElementById('doc_first_name').value.trim(),
+                last_name: document.getElementById('doc_last_name').value.trim(),
+                specialization: document.getElementById('doc_specialization').value.trim(),
+                schedule: document.getElementById('doc_schedule').value.trim(),
                 contact_number: document.getElementById('doc_contact').value || null,
-                email: document.getElementById('doc_email').value || null,
+                email: document.getElementById('doc_email').value.trim(),
+                password: document.getElementById('doc_password').value,
             };
-            if (!data.first_name || !data.last_name) {
-                alert('First name and last name are required');
-                return;
+            if (!data.first_name || !data.last_name || !data.specialization || !data.schedule || !data.email || !data.password) {
+                alert('Please complete all required doctor and account fields.');
+                return false;
             }
-            await api.createDoctor(data);
-            alert('Doctor added');
+            const result = await api.createDoctor(data);
+            alert(`Doctor account created. The doctor can log in with ${data.email} and the assigned password.`);
             app.loadView('doctors');
         });
     },
@@ -180,21 +182,24 @@ const adminView = {
             return;
         }
         const content = `
-            <div class="form-group"><label>First Name*</label><input type="text" id="edit_doc_first_name" value="${doctor.first_name.replace(/"/g, '&quot;')}" required></div>
-            <div class="form-group"><label>Last Name*</label><input type="text" id="edit_doc_last_name" value="${doctor.last_name.replace(/"/g, '&quot;')}" required></div>
-            <div class="form-group"><label>Specialization</label><input type="text" id="edit_doc_specialization" value="${doctor.specialization || ''}"></div>
-            <div class="form-group"><label>Schedule</label><input type="text" id="edit_doc_schedule" value="${doctor.schedule || ''}"></div>
-            <div class="form-group"><label>Contact Number</label><input type="text" id="edit_doc_contact" value="${doctor.contact_number || ''}"></div>
-            <div class="form-group"><label>Email</label><input type="email" id="edit_doc_email" value="${doctor.email || ''}"></div>
+            <div class="form-group"><label>First Name*</label><input type="text" id="edit_doc_first_name" value="${components.escapeHtml(doctor.first_name)}" required></div>
+            <div class="form-group"><label>Last Name*</label><input type="text" id="edit_doc_last_name" value="${components.escapeHtml(doctor.last_name)}" required></div>
+            <div class="form-group"><label>Specialization*</label><input type="text" id="edit_doc_specialization" value="${components.escapeHtml(doctor.specialization)}" required></div>
+            <div class="form-group"><label>Schedule*</label><input type="text" id="edit_doc_schedule" value="${components.escapeHtml(doctor.schedule)}" required></div>
+            <div class="form-group"><label>Contact Number</label><input type="tel" id="edit_doc_contact" value="${components.escapeHtml(doctor.contact_number)}"></div>
+            <div class="form-group"><label>Email*</label><input type="email" id="edit_doc_email" value="${components.escapeHtml(doctor.email)}" required></div>
+            <small>Changing the email also resets the login username to this address.</small>
+            <div class="form-group"><label>${doctor.has_account ? 'New Password' : 'Account Password*'}</label><input type="password" id="edit_doc_password" minlength="6" ${doctor.has_account ? 'placeholder="Leave blank to keep current password"' : 'required'}></div>
         `;
         components.showModal('Edit Doctor', content, async () => {
             const data = {
-                first_name: document.getElementById('edit_doc_first_name').value,
-                last_name: document.getElementById('edit_doc_last_name').value,
-                specialization: document.getElementById('edit_doc_specialization').value || null,
-                schedule: document.getElementById('edit_doc_schedule').value || null,
+                first_name: document.getElementById('edit_doc_first_name').value.trim(),
+                last_name: document.getElementById('edit_doc_last_name').value.trim(),
+                specialization: document.getElementById('edit_doc_specialization').value.trim(),
+                schedule: document.getElementById('edit_doc_schedule').value.trim(),
                 contact_number: document.getElementById('edit_doc_contact').value || null,
-                email: document.getElementById('edit_doc_email').value || null,
+                email: document.getElementById('edit_doc_email').value.trim(),
+                password: document.getElementById('edit_doc_password').value || null,
             };
             await api.updateDoctor(id, data);
             alert('Doctor updated');
@@ -202,11 +207,13 @@ const adminView = {
         });
     },
 
-    async deleteDoctor(id) {
-        if (confirm('Soft delete this doctor?')) {
-            await api.deleteDoctor(id);
-            alert('Doctor deleted');
+    async setDoctorActive(id, isActive) {
+        try {
+            await api.setDoctorActive(id, isActive);
+            alert(`Doctor account ${isActive ? 'activated' : 'deactivated'}.`);
             app.loadView('doctors');
+        } catch (error) {
+            alert(`Could not update doctor account: ${error.message}`);
         }
     },
 
