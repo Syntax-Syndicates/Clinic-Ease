@@ -35,7 +35,7 @@ const patientView = {
                 <div class="data-table">
                     <h3 style="padding: 20px 20px 0;">Recent Appointments</h3>
                     ${components.renderTable(
-                        ['appointment_date', 'appointment_time', 'doctor_first_name', 'status'],
+                        ['appointment_date', 'appointment_time', 'doctor_first_name', 'doctor_last_name', 'status'],
                         appointments.slice(0, 5),
                         null
                     )}
@@ -46,4 +46,23 @@ const patientView = {
             return `<div class="error">Error loading dashboard: ${error.message}</div>`;
         }
     }
+};
+
+const doctorView = {
+    async renderDashboard() {
+        try {
+            const appointments = await api.getAppointments();
+            const pending = appointments.filter((appointment) => appointment.status === 'pending').length;
+            return `
+                <div class="stats-grid">
+                    <div class="stat-card"><i class="fas fa-calendar-check"></i><h3>Total Requests</h3><div class="number">${appointments.length}</div></div>
+                    <div class="stat-card"><i class="fas fa-clock"></i><h3>Pending Approval</h3><div class="number">${pending}</div></div>
+                    <div class="stat-card"><i class="fas fa-check-circle"></i><h3>Approved</h3><div class="number">${appointments.filter((appointment) => appointment.status === 'approved').length}</div></div>
+                </div>
+                <button class="btn-add" onclick="app.loadView('appointments')">Review Appointment Requests</button>
+            `;
+        } catch (error) {
+            return `<div class="error">Error loading dashboard: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
 };

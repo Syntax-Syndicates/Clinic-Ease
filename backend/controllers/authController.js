@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userModel = require('../models/userModel');
 const patientModel = require('../models/patientModel');
+const doctorModel = require('../models/doctorModel');
 
 const login = async (req, res) => {
     try {
@@ -23,12 +24,24 @@ const login = async (req, res) => {
 
         // Get patient info if role is patient
         let patientInfo = null;
+        let doctorInfo = null;
         if (user.role === 'patient') {
             patientInfo = await patientModel.getPatientByUserId(user.id);
+        } else if (user.role === 'doctor') {
+            doctorInfo = await doctorModel.getDoctorByUserId(user.id);
+            if (!doctorInfo) {
+                return res.status(401).json({ error: 'This doctor account is inactive or unavailable.' });
+            }
         }
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role, patientId: patientInfo?.id || null },
+            {
+                id: user.id,
+                username: user.username,
+                role: user.role,
+                patientId: patientInfo?.id || null,
+                doctorId: doctorInfo?.id || null,
+            },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -40,7 +53,9 @@ const login = async (req, res) => {
                 id: user.id,
                 username: user.username,
                 role: user.role,
-                patientId: patientInfo?.id || null
+                patientId: patientInfo?.id || null,
+                doctorId: doctorInfo?.id || null,
+                doctorName: doctorInfo ? `${doctorInfo.first_name} ${doctorInfo.last_name}` : null,
             }
         });
     } catch (error) {
@@ -83,6 +98,7 @@ const getProfile = async (req, res) => {
             username: req.user.username,
             role: req.user.role,
             patientId: req.user.patientId || null,
+            doctorId: req.user.doctorId || null,
         };
 
         if (req.user.role === 'patient') {
@@ -163,4 +179,28 @@ const changePassword = async (req, res) => {
     }
 };
 
-module.exports = { login, register, getProfile, updateProfile, changePassword };
+const updateDoctorUsername = async (req, res) => {
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+    if (username.length < 3 || username.length > 100 || /\s/.test(username)) {
+        return res.status(400).json({ error: 'Username must be 3-100 characters and contain no spaces.' });
+    }
+
+    try {
+        const updated = await userModel.updateUsername(req.user.id, username);
+        if (!updated) return res.status(404).json({ error: 'Doctor account not found.' });
+        const token = jwt.sign(
+            { id: req.user.id, username, role: 'doctor', doctorId: req.user.doctorId },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        res.json({ message: 'Username updated successfully.', username, token });
+    } catch (error) {
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'That username is already in use.' });
+        }
+        console.error(error);
+        res.status(500).json({ error: 'Failed to update username.' });
+    }
+};
+
+module.exports = { login, register, getProfile, updateProfile, changePassword, updateDoctorUsername };

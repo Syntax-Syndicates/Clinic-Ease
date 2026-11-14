@@ -29,4 +29,14 @@ const updatePassword = async (id, hashedPassword) => {
     await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, id]);
 };
 
-module.exports = { findUserByUsername, findUserById, createUser, updatePassword };
+const updateUsername = async (id, username) => {
+    const result = await db.query(
+        `UPDATE users SET username = $1
+         WHERE id = $2 AND role = 'doctor' AND is_deleted = FALSE
+         RETURNING id`,
+        [username, id]
+    );
+    return result.rowCount > 0;
+};
+
+module.exports = { findUserByUsername, findUserById, createUser, updatePassword, updateUsername };

@@ -8,6 +8,7 @@ router.post('/login', authController.login);
 router.post('/register', authController.register);
 router.get('/me', verifyToken, authController.getProfile);
 router.put('/me', verifyToken, checkRole(['patient']), authController.updateProfile);
+router.put('/username', verifyToken, checkRole(['doctor']), authController.updateDoctorUsername);
 router.put('/change-password', verifyToken, authController.changePassword);
 
 module.exports = router;
