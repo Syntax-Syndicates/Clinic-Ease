@@ -1,4 +1,4 @@
-const db = require('../config/db');
+const callProcedure = require('../db/callProcedure');
 const {
     AvailabilityError,
     assertAppointmentAvailableBySchedule,
@@ -7,239 +7,124 @@ const {
     SLOT_DURATION_MINUTES,
 } = require('../utils/appointmentAvailability');
 
-const appointmentSelect = `
-    SELECT a.*,
-           p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-           p.email AS patient_email, p.contact_number AS patient_contact_number,
-           d.first_name AS doctor_first_name, d.last_name AS doctor_last_name,
-           d.specialization, d.email AS doctor_email, d.contact_number AS doctor_contact_number
-    FROM appointments a
-    JOIN patients p ON a.patient_id = p.id
-    JOIN doctors d ON a.doctor_id = d.id`;
+const getAllAppointments = () =>
+    callProcedure('CALL clinicease_appointment_list_all(NULL)');
 
-const getAllAppointments = async () => {
-    const result = await db.query(
-        `${appointmentSelect}
-         WHERE a.is_deleted = FALSE
-         ORDER BY a.appointment_date DESC, a.appointment_time ASC`
-    );
-    return result.rows;
-};
+const getAppointmentsByPatientId = (patientId) =>
+    callProcedure('CALL clinicease_appointment_list_by_patient($1, NULL)', [patientId]);
 
-const getAppointmentsByPatientId = async (patientId) => {
-    const result = await db.query(
-        `${appointmentSelect}
-         WHERE a.patient_id = $1 AND a.is_deleted = FALSE
-         ORDER BY a.appointment_date DESC, a.appointment_time ASC`,
-        [patientId]
-    );
-    return result.rows;
-};
+const getAppointmentsByDoctorId = (doctorId) =>
+    callProcedure('CALL clinicease_appointment_list_by_doctor($1, NULL)', [doctorId]);
 
-const getAppointmentsByDoctorId = async (doctorId) => {
-    const result = await db.query(
-        `${appointmentSelect}
-         WHERE a.doctor_id = $1 AND a.is_deleted = FALSE
-         ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
-        [doctorId]
-    );
-    return result.rows;
-};
+const getAppointmentById = (id) =>
+    callProcedure('CALL clinicease_appointment_find_by_id($1, NULL)', [id]);
 
-const getAppointmentById = async (id) => {
-    const result = await db.query(
-        `${appointmentSelect}
-         WHERE a.id = $1 AND a.is_deleted = FALSE`,
-        [id]
+const getAvailabilityInputs = (doctorId, appointmentDate, excludeId) =>
+    callProcedure(
+        'CALL clinicease_appointment_availability_inputs($1, $2, $3, NULL)',
+        [doctorId, appointmentDate, excludeId]
     );
-    return result.rows[0];
-};
 
 const getAppointmentAvailability = async (doctorId, appointmentDate) => {
-    const doctorResult = await db.query(
-        'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
-        [doctorId]
-    );
-    if (!doctorResult.rows[0]) return null;
-
-    const appointmentResult = await db.query(
-        `SELECT appointment_time FROM appointments
-         WHERE doctor_id = $1 AND appointment_date = $2 AND is_deleted = FALSE
-           AND status NOT IN ('cancelled', 'rejected')`,
-        [doctorId, appointmentDate]
-    );
+    const inputs = await getAvailabilityInputs(doctorId, appointmentDate);
+    if (!inputs) return null;
 
     return {
         doctor_id: Number(doctorId),
         date: appointmentDate,
         slot_duration_minutes: SLOT_DURATION_MINUTES,
-        available_slots: getAvailableSlots(
-            doctorResult.rows[0].schedule,
-            appointmentDate,
-            appointmentResult.rows.map((appointment) => appointment.appointment_time)
-        ),
+        available_slots: getAvailableSlots(inputs.schedule, appointmentDate, inputs.appointment_times),
     };
 };
 
+const assertSlotAvailable = async (doctorId, appointmentDate, appointmentTime, excludeId) => {
+    const inputs = await getAvailabilityInputs(doctorId, appointmentDate, excludeId);
+    if (!inputs) {
+        throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
+    }
+
+    const start = assertAppointmentAvailableBySchedule(
+        inputs.schedule,
+        appointmentDate,
+        appointmentTime
+    );
+    if (hasOverlap(
+        `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
+        inputs.appointment_times
+    )) {
+        throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
+    }
+};
+
+const mapProcedureError = (error) => {
+    if (error.code === 'P0002') {
+        throw new AvailabilityError('Appointment not found.', 404);
+    }
+    if (error.detail === 'DOCTOR_UNAVAILABLE') {
+        throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
+    }
+    if (error.detail === 'PATIENT_NOT_FOUND') {
+        throw new AvailabilityError('Patient not found.', 404);
+    }
+    if (error.detail === 'SLOT_UNAVAILABLE' || error.code === '23505') {
+        throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
+    }
+    throw error;
+};
+
 const createAppointment = async (appointmentData) => {
-    const { patient_id, doctor_id, appointment_date, appointment_time, status, notes } = appointmentData;
-    const client = await db.connect();
-    let transactionStarted = false;
+    const {
+        patient_id, doctor_id, appointment_date, appointment_time, status, notes,
+    } = appointmentData;
+    await assertSlotAvailable(doctor_id, appointment_date, appointment_time);
     try {
-        await client.query('BEGIN');
-        transactionStarted = true;
-        await client.query(
-            'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
-            [doctor_id, appointment_date]
-        );
-
-        const doctorResult = await client.query(
-            'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
-            [doctor_id]
-        );
-        if (!doctorResult.rows[0]) {
-            throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
-        }
-        const start = assertAppointmentAvailableBySchedule(
-            doctorResult.rows[0].schedule,
+        return await callProcedure('CALL clinicease_appointment_create($1, $2, $3, $4, $5, $6, NULL)', [
+            patient_id,
+            doctor_id,
             appointment_date,
-            appointment_time
-        );
-
-        const patientResult = await client.query(
-            'SELECT id FROM patients WHERE id = $1 AND is_deleted = FALSE',
-            [patient_id]
-        );
-        if (!patientResult.rows[0]) {
-            throw new AvailabilityError('Patient not found.', 404);
-        }
-
-        const occupiedResult = await client.query(
-            `SELECT appointment_time FROM appointments
-             WHERE doctor_id = $1 AND appointment_date = $2 AND is_deleted = FALSE
-               AND status NOT IN ('cancelled', 'rejected')`,
-            [doctor_id, appointment_date]
-        );
-        if (hasOverlap(
-            `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
-            occupiedResult.rows.map((appointment) => appointment.appointment_time)
-        )) {
-            throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
-        }
-
-        const result = await client.query(
-            `INSERT INTO appointments
-                (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-            [patient_id, doctor_id, appointment_date, appointment_time, status || 'pending', notes || null]
-        );
-        await client.query('COMMIT');
-        return result.rows[0].id;
+            appointment_time,
+            status || 'pending',
+            notes || null,
+        ]);
     } catch (error) {
-        if (transactionStarted) await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
+        mapProcedureError(error);
     }
 };
 
 const updateAppointment = async (id, appointmentData) => {
-    const { patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason } = appointmentData;
-    const client = await db.connect();
-    let transactionStarted = false;
+    const {
+        patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason,
+    } = appointmentData;
+    if (!await getAppointmentById(id)) {
+        throw new AvailabilityError('Appointment not found.', 404);
+    }
+    if (!['cancelled', 'rejected', 'completed'].includes(status)) {
+        await assertSlotAvailable(doctor_id, appointment_date, appointment_time, id);
+    }
     try {
-        await client.query('BEGIN');
-        transactionStarted = true;
-        await client.query(
-            'SELECT pg_advisory_xact_lock($1::integer, hashtext($2))',
-            [doctor_id, appointment_date]
-        );
-
-        const appointmentResult = await client.query(
-            'SELECT id FROM appointments WHERE id = $1 AND is_deleted = FALSE FOR UPDATE',
-            [id]
-        );
-        if (!appointmentResult.rows[0]) {
-            throw new AvailabilityError('Appointment not found.', 404);
-        }
-
-        if (!['cancelled', 'rejected', 'completed'].includes(status)) {
-            const doctorResult = await client.query(
-                'SELECT schedule FROM doctors WHERE id = $1 AND is_deleted = FALSE AND is_active = TRUE',
-                [doctor_id]
-            );
-            if (!doctorResult.rows[0]) {
-                throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
-            }
-            const start = assertAppointmentAvailableBySchedule(
-                doctorResult.rows[0].schedule,
-                appointment_date,
-                appointment_time
-            );
-            const occupiedResult = await client.query(
-                `SELECT appointment_time FROM appointments
-                 WHERE doctor_id = $1 AND appointment_date = $2 AND id <> $3
-                   AND is_deleted = FALSE AND status NOT IN ('cancelled', 'rejected')`,
-                [doctor_id, appointment_date, id]
-            );
-            if (hasOverlap(
-                `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
-                occupiedResult.rows.map((appointment) => appointment.appointment_time)
-            )) {
-                throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
-            }
-        }
-
-        await client.query(
-            `UPDATE appointments SET
-                patient_id = $1, doctor_id = $2, appointment_date = $3, appointment_time = $4,
-                status = $5, notes = $6, rejection_reason = $7
-             WHERE id = $8`,
-            [patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason || null, id]
-        );
-        await client.query('COMMIT');
+        return await callProcedure('CALL clinicease_appointment_update($1, $2, $3, $4, $5, $6, $7, $8, NULL)', [
+            id,
+            patient_id,
+            doctor_id,
+            appointment_date,
+            appointment_time,
+            status,
+            notes,
+            rejection_reason || null,
+        ]);
     } catch (error) {
-        if (transactionStarted) await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
+        mapProcedureError(error);
     }
 };
 
-const decideAppointment = async (id, doctorId, status, rejectionReason = null) => {
-    const result = await db.query(
-        `UPDATE appointments SET status = $1, rejection_reason = $2
-         WHERE id = $3 AND doctor_id = $4 AND status = 'pending' AND is_deleted = FALSE
-         RETURNING id`,
-        [status, rejectionReason, id, doctorId]
+const decideAppointment = (id, doctorId, status, rejectionReason = null) =>
+    callProcedure(
+        'CALL clinicease_appointment_decide($1, $2, $3, $4, NULL)',
+        [id, doctorId, status, rejectionReason]
     );
-    if (result.rows[0]) return 'updated';
-    const existing = await db.query(
-        'SELECT doctor_id, status FROM appointments WHERE id = $1 AND is_deleted = FALSE',
-        [id]
-    );
-    if (!existing.rows[0]) return 'not_found';
-    if (Number(existing.rows[0].doctor_id) !== Number(doctorId)) return 'forbidden';
-    return 'not_pending';
-};
 
-const cancelAppointment = async (id, patientId = null) => {
-    const result = await db.query(
-        `UPDATE appointments SET status = 'cancelled'
-         WHERE id = $1 AND ($2::integer IS NULL OR patient_id = $2)
-           AND is_deleted = FALSE AND status IN ('pending', 'approved')
-         RETURNING id`,
-        [id, patientId]
-    );
-    if (result.rows[0]) return 'cancelled';
-    const existing = await db.query(
-        'SELECT patient_id FROM appointments WHERE id = $1 AND is_deleted = FALSE',
-        [id]
-    );
-    if (!existing.rows[0]) return 'not_found';
-    if (patientId && Number(existing.rows[0].patient_id) !== Number(patientId)) return 'forbidden';
-    return 'not_cancellable';
-};
+const cancelAppointment = (id, patientId = null) =>
+    callProcedure('CALL clinicease_appointment_cancel($1, $2, NULL)', [id, patientId]);
 
 module.exports = {
     getAllAppointments,

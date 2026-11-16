@@ -78,11 +78,9 @@ const register = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const userId = await userModel.createUser(username, hashedPassword, 'patient');
-
-        await patientModel.createPatient({
-            first_name, last_name, date_of_birth, gender, address, contact_number, email, blood_type, allergies
-        }, userId);
+        await userModel.registerPatient(username, hashedPassword, {
+            first_name, last_name, date_of_birth, gender, address, contact_number, email, blood_type, allergies,
+        });
 
         res.status(201).json({ message: 'Registration successful. Please login.' });
     } catch (error) {

@@ -1,6 +1,6 @@
 // backend/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const callProcedure = require('../db/callProcedure');
 
 const verifyToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -18,17 +18,14 @@ const verifyToken = async (req, res, next) => {
 
     if (decoded.role === 'doctor') {
         try {
-            const result = await db.query(
-                `SELECT d.id FROM doctors d
-                 JOIN users u ON u.id = d.user_id
-                 WHERE u.id = $1 AND u.is_deleted = FALSE
-                   AND d.is_deleted = FALSE AND d.is_active = TRUE`,
+            const doctor = await callProcedure(
+                'CALL clinicease_auth_active_doctor($1, NULL)',
                 [decoded.id]
             );
-            if (!result.rows[0]) {
+            if (!doctor) {
                 return res.status(403).json({ error: 'Doctor account is inactive or unavailable.' });
             }
-            decoded.doctorId = result.rows[0].id;
+            decoded.doctorId = doctor.id;
         } catch (error) {
             console.error(error);
             return res.status(500).json({ error: 'Failed to verify doctor account.' });
