@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const pool = require('./config/db');
+const callProcedure = require('./db/callProcedure');
 
 async function fixPasswords() {
     const { ADMIN_PASSWORD, PATIENT_PASSWORD } = process.env;
@@ -10,9 +11,18 @@ async function fixPasswords() {
     const adminHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
     const patientHash = await bcrypt.hash(PATIENT_PASSWORD, 10);
 
-    await pool.query('UPDATE users SET password_hash = $1 WHERE username = $2', [adminHash, 'admin']);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE username = $2', [patientHash, 'juan123']);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE username = $2', [patientHash, 'maria123']);
+    await callProcedure(
+        'CALL clinicease_user_update_password_by_username($1, $2, NULL)',
+        [adminHash, 'admin']
+    );
+    await callProcedure(
+        'CALL clinicease_user_update_password_by_username($1, $2, NULL)',
+        [patientHash, 'juan123']
+    );
+    await callProcedure(
+        'CALL clinicease_user_update_password_by_username($1, $2, NULL)',
+        [patientHash, 'maria123']
+    );
 
     console.log('Passwords updated successfully');
 }

@@ -24,6 +24,19 @@ const getPatientById = async (req, res) => {
     }
 };
 
+const getDashboard = async (req, res) => {
+    try {
+        const dashboard = await patientModel.getDashboardByUserId(req.user.id);
+        if (!dashboard) {
+            return res.status(404).json({ error: 'Patient profile not found' });
+        }
+        res.json(dashboard);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch patient dashboard' });
+    }
+};
+
 const createPatient = async (req, res) => {
     try {
         const { username, password, ...patientData } = req.body;
@@ -54,8 +67,8 @@ const createPatient = async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(finalPassword, 10);
-        const userId = await userModel.createUser(username, hashedPassword, 'patient');
-        const patientId = await patientModel.createPatient(patientData, userId);
+        const registration = await userModel.registerPatient(username, hashedPassword, patientData);
+        const patientId = registration.patient_id;
 
         // Send back generated password only if it was auto-generated
         const response = { message: 'Patient created successfully', id: patientId };
@@ -89,4 +102,11 @@ const deletePatient = async (req, res) => {
     }
 };
 
-module.exports = { getAllPatients, getPatientById, createPatient, updatePatient, deletePatient };
+module.exports = {
+    getAllPatients,
+    getPatientById,
+    getDashboard,
+    createPatient,
+    updatePatient,
+    deletePatient,
+};

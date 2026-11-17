@@ -8,6 +8,7 @@ router.get('/', verifyToken, doctorController.getAllDoctors);
 router.get('/:id', verifyToken, doctorController.getDoctorById);
 router.post('/', verifyToken, checkRole(['admin']), doctorController.createDoctor);
 router.put('/:id', verifyToken, checkRole(['admin']), doctorController.updateDoctor);
+router.patch('/:id/status', verifyToken, checkRole(['admin']), doctorController.setDoctorActive);
 router.delete('/:id', verifyToken, checkRole(['admin']), doctorController.deleteDoctor);
 
 module.exports = router;

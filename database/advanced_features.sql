@@ -7,18 +7,21 @@ CREATE OR REPLACE FUNCTION fn_validate_appointment_status(
     _new_status VARCHAR
 ) RETURNS BOOLEAN AS $$
 BEGIN
-    -- Allow: pending -> confirmed|cancelled
+    -- Allow: pending -> approved|rejected|cancelled
     IF _old_status = 'pending' THEN
-        RETURN _new_status IN ('confirmed', 'cancelled', 'pending');
+        RETURN _new_status IN ('approved', 'rejected', 'cancelled', 'pending');
     END IF;
 
-    -- Allow: confirmed -> completed|cancelled
+    -- Allow: approved -> completed|cancelled
+    IF _old_status = 'approved' THEN
+        RETURN _new_status IN ('completed', 'cancelled', 'approved');
+    END IF;
     IF _old_status = 'confirmed' THEN
-        RETURN _new_status IN ('completed', 'cancelled', 'confirmed');
+        RETURN _new_status IN ('approved', 'cancelled', 'confirmed');
     END IF;
 
-    -- Allow: completed stays completed, cancelled stays cancelled
-    IF _old_status IN ('completed','cancelled') THEN
+    -- Terminal statuses cannot be reopened.
+    IF _old_status IN ('completed', 'rejected', 'cancelled') THEN
         RETURN _new_status IN (_old_status);
     END IF;
 

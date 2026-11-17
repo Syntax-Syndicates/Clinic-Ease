@@ -3,7 +3,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'patient')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'patient', 'doctor')),
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,12 +28,14 @@ CREATE TABLE patients (
 -- Doctors table
 CREATE TABLE doctors (
     id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE SET NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     specialization VARCHAR(150),
     schedule TEXT,
     contact_number VARCHAR(20),
     email VARCHAR(150),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,8 +47,9 @@ CREATE TABLE appointments (
     doctor_id INTEGER REFERENCES doctors(id) ON DELETE CASCADE,
     appointment_date DATE NOT NULL,
     appointment_time TIME NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'cancelled')),
     notes TEXT,
+    rejection_reason TEXT,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -81,7 +84,7 @@ INSERT INTO doctors (first_name, last_name, specialization, schedule, contact_nu
 ('Ana', 'Lim', 'Internal Medicine', 'Tue-Sat 08:00-15:00', '09391234569', 'a.lim@clinicease.com');
 
 INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes) VALUES
-(1, 1, '2026-05-10', '10:00:00', 'confirmed', 'Regular checkup'),
+(1, 1, '2026-05-10', '10:00:00', 'approved', 'Regular checkup'),
 (2, 2, '2026-05-12', '09:00:00', 'pending', 'Child wellness checkup'),
 (1, 3, '2026-05-15', '14:00:00', 'pending', 'Hypertension follow-up');
 

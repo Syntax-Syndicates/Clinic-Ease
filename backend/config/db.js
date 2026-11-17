@@ -1,5 +1,10 @@
 const { Pool } = require('pg');
 require('dotenv').config();
+require('./loadUserEnvironment')();
+
+if (!process.env.DB_PASSWORD) {
+    throw new Error('DB_PASSWORD is not set. Configure it in the Windows user environment or process environment.');
+}
 
 const pool = new Pool({
     user: process.env.DB_USER || 'postgres',

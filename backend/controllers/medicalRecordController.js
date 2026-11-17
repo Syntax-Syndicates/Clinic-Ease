@@ -1,6 +1,5 @@
 // backend/controllers/medicalRecordController.js
 const medicalRecordModel = require('../models/medicalRecordModel');
-const db = require('../config/db');
 
 const getMedicalRecords = async (req, res) => {
     try {
@@ -18,26 +17,30 @@ const getMedicalRecords = async (req, res) => {
 
 const createMedicalRecord = async (req, res) => {
     try {
-        const { appointment_id, patient_id, doctor_id, diagnosis, prescription, consultation_notes, follow_up_date } = req.body;
-
-        // Check if a medical record already exists for this appointment
-        const existing = await medicalRecordModel.getMedicalRecordByAppointmentId(appointment_id);
-        if (existing) {
-            return res.status(400).json({ error: 'A medical record already exists for this appointment' });
+        const { appointment_id, patient_id, doctor_id } = req.body;
+        if (![appointment_id, patient_id, doctor_id].every((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0)) {
+            return res.status(400).json({ error: 'Appointment, patient, and doctor IDs are required.' });
+        }
+        const result = await medicalRecordModel.createMedicalRecord(req.body);
+        if (result.status === 'not_found') {
+            return res.status(404).json({ error: 'Appointment not found.' });
+        }
+        if (result.status === 'appointment_mismatch') {
+            return res.status(400).json({ error: 'Patient and doctor must match the appointment.' });
+        }
+        if (result.status === 'appointment_not_approved') {
+            return res.status(409).json({ error: 'A medical record can only be added to an approved appointment.' });
+        }
+        if (result.status === 'already_exists') {
+            return res.status(409).json({ error: 'A medical record already exists for this appointment.' });
         }
 
-        // Insert the medical record
-        const id = await medicalRecordModel.createMedicalRecord(req.body);
-
-        // Update the appointment status to 'completed'
-        await db.query(
-            'UPDATE appointments SET status = $1 WHERE id = $2',
-            ['completed', appointment_id]
-        );
-
-        res.status(201).json({ message: 'Medical record created successfully', id });
+        res.status(201).json({ message: 'Medical record created successfully', id: result.id });
     } catch (error) {
         console.error(error);
+        if (error.code === '23505') {
+            return res.status(409).json({ error: 'A medical record already exists for this appointment.' });
+        }
         res.status(500).json({ error: 'Failed to create medical record' });
     }
 };

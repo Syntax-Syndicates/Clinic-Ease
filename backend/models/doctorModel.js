@@ -1,43 +1,57 @@
-// backend/models/doctorModel.js
-const db = require('../config/db');
+const callProcedure = require('../db/callProcedure');
 
-const getAllDoctors = async () => {
-    const result = await db.query(
-        'SELECT * FROM doctors WHERE is_deleted = FALSE ORDER BY id ASC'
-    );
-    return result.rows;
+const getAllDoctors = (includeInactive = false) =>
+    callProcedure('CALL clinicease_doctor_list($1, NULL)', [includeInactive]);
+
+const getDoctorById = (id, includeInactive = false) =>
+    callProcedure('CALL clinicease_doctor_find_by_id($1, $2, NULL)', [id, includeInactive]);
+
+const getDoctorByUserId = (userId) =>
+    callProcedure('CALL clinicease_doctor_find_by_user_id($1, NULL)', [userId]);
+
+const createDoctor = (doctorData, hashedPassword) =>
+    callProcedure('CALL clinicease_doctor_create($1, $2, $3, $4, $5, $6, $7, NULL)', [
+        hashedPassword,
+        doctorData.first_name,
+        doctorData.last_name,
+        doctorData.specialization,
+        doctorData.schedule,
+        doctorData.contact_number,
+        doctorData.email,
+    ]);
+
+const updateDoctor = async (id, doctorData, hashedPassword) => {
+    try {
+        return await callProcedure('CALL clinicease_doctor_update($1, $2, $3, $4, $5, $6, $7, $8, NULL)', [
+            id,
+            doctorData.first_name,
+            doctorData.last_name,
+            doctorData.specialization,
+            doctorData.schedule,
+            doctorData.contact_number,
+            doctorData.email,
+            hashedPassword,
+        ]);
+    } catch (error) {
+        if (error.code === 'P0002') {
+            error.status = 404;
+        }
+        throw error;
+    }
 };
 
-const getDoctorById = async (id) => {
-    const result = await db.query(
-        'SELECT * FROM doctors WHERE id = $1 AND is_deleted = FALSE',
-        [id]
-    );
-    return result.rows[0];
-};
+const setDoctorActive = (id, isActive) =>
+    callProcedure('CALL clinicease_doctor_set_active($1, $2, NULL)', [id, isActive]);
 
-const createDoctor = async (doctorData) => {
-    const { first_name, last_name, specialization, schedule, contact_number, email } = doctorData;
-    const result = await db.query(
-        `INSERT INTO doctors (first_name, last_name, specialization, schedule, contact_number, email)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [first_name, last_name, specialization, schedule, contact_number, email]
-    );
-    return result.rows[0].id;
-};
+const deleteDoctor = (id) =>
+    callProcedure('CALL clinicease_doctor_delete($1, NULL)', [id]);
 
-const updateDoctor = async (id, doctorData) => {
-    const { first_name, last_name, specialization, schedule, contact_number, email } = doctorData;
-    await db.query(
-        `UPDATE doctors SET
-            first_name = $1, last_name = $2, specialization = $3, schedule = $4, contact_number = $5, email = $6
-         WHERE id = $7`,
-        [first_name, last_name, specialization, schedule, contact_number, email, id]
-    );
+module.exports = {
+    getAllDoctors,
+    getDoctorById,
+    getDoctorByUserId,
+    createDoctor,
+    updateDoctor,
+    setDoctorActive,
+    deleteDoctor,
 };
-
-const deleteDoctor = async (id) => {
-    await db.query('UPDATE doctors SET is_deleted = TRUE WHERE id = $1', [id]);
-};
-
-module.exports = { getAllDoctors, getDoctorById, createDoctor, updateDoctor, deleteDoctor };

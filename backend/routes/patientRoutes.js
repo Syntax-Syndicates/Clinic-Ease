@@ -4,6 +4,7 @@ const router = express.Router();
 const patientController = require('../controllers/patientController');
 const { verifyToken, checkRole } = require('../middleware/auth');
 
+router.get('/me/dashboard', verifyToken, checkRole(['patient']), patientController.getDashboard);
 router.get('/', verifyToken, checkRole(['admin']), patientController.getAllPatients);
 router.get('/:id', verifyToken, checkRole(['admin']), patientController.getPatientById);
 router.post('/', verifyToken, checkRole(['admin']), patientController.createPatient);

@@ -195,7 +195,7 @@ Content-Type: application/json
   "doctor_id": 1,
   "appointment_date": "2026-12-02",
   "appointment_time": "14:00:00",
-  "status": "confirmed",
+  "status": "approved",
   "notes": "Follow-up visit"
 }
 
@@ -209,7 +209,7 @@ Content-Type: application/json
   "doctor_id": 1,
   "appointment_date": "2026-12-03",
   "appointment_time": "11:00:00",
-  "status": "confirmed",
+  "status": "approved",
   "notes": "Rescheduled follow-up"
 }
 

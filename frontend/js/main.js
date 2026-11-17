@@ -7,6 +7,8 @@ const app = {
                 case 'dashboard':
                     if (window.currentUser.role === 'admin') {
                         container.innerHTML = await adminView.renderDashboard();
+                    } else if (window.currentUser.role === 'doctor') {
+                        container.innerHTML = await doctorView.renderDashboard();
                     } else {
                         container.innerHTML = await patientView.renderDashboard();
                     }
@@ -30,7 +32,9 @@ const app = {
                     container.innerHTML = await this.renderAppointments();
                     break;
                 case 'medical-records':
-                    container.innerHTML = await this.renderMedicalRecords();
+                    if (window.currentUser.role !== 'doctor') {
+                        container.innerHTML = await this.renderMedicalRecords();
+                    }
                     break;
                 case 'settings':
                     container.innerHTML = await this.renderSettings(container);
@@ -39,7 +43,7 @@ const app = {
                     container.innerHTML = '<div>View not found</div>';
             }
         } catch (error) {
-            container.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            container.innerHTML = `<div class="error">Error: ${components.escapeHtml(error.message)}</div>`;
         }
     },
 
@@ -49,16 +53,17 @@ const app = {
             const isAdmin = profile.role === 'admin';
             const patient = profile.patient || {};
 
+            const isPatient = profile.role === 'patient';
             const profileSection = isAdmin ? `
                 <div class="settings-card">
                     <h2>Admin Account</h2>
                     <p>Admin accounts can change password here. Personal patient profile fields are managed by patients themselves.</p>
                 </div>
-            ` : `
+            ` : isPatient ? `
                 <div class="settings-card">
                     <h2>Profile Information</h2>
-                    <div class="form-group"><label>First Name</label><input type="text" id="profile_first_name" value="${patient.first_name || ''}"></div>
-                    <div class="form-group"><label>Last Name</label><input type="text" id="profile_last_name" value="${patient.last_name || ''}"></div>
+                    <div class="form-group"><label>First Name</label><input type="text" id="profile_first_name" value="${components.escapeHtml(patient.first_name)}"></div>
+                    <div class="form-group"><label>Last Name</label><input type="text" id="profile_last_name" value="${components.escapeHtml(patient.last_name)}"></div>
                     <div class="form-group"><label>Date of Birth</label><input type="date" id="profile_date_of_birth" value="${patient.date_of_birth ? patient.date_of_birth.split('T')[0] : ''}"></div>
                     <div class="form-group"><label>Gender</label>
                         <select id="profile_gender">
@@ -67,12 +72,20 @@ const app = {
                             <option value="Female" ${patient.gender === 'Female' ? 'selected' : ''}>Female</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Email</label><input type="email" id="profile_email" value="${patient.email || ''}"></div>
-                    <div class="form-group"><label>Contact Number</label><input type="text" id="profile_contact_number" value="${patient.contact_number || ''}"></div>
-                    <div class="form-group"><label>Address</label><textarea id="profile_address" rows="2">${patient.address || ''}</textarea></div>
-                    <div class="form-group"><label>Blood Type</label><input type="text" id="profile_blood_type" value="${patient.blood_type || ''}"></div>
-                    <div class="form-group"><label>Allergies</label><input type="text" id="profile_allergies" value="${patient.allergies || ''}"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="profile_email" value="${components.escapeHtml(patient.email)}"></div>
+                    <div class="form-group"><label>Contact Number</label><input type="text" id="profile_contact_number" value="${components.escapeHtml(patient.contact_number)}"></div>
+                    <div class="form-group"><label>Address</label><textarea id="profile_address" rows="2">${components.escapeHtml(patient.address)}</textarea></div>
+                    <div class="form-group"><label>Blood Type</label><input type="text" id="profile_blood_type" value="${components.escapeHtml(patient.blood_type)}"></div>
+                    <div class="form-group"><label>Allergies</label><input type="text" id="profile_allergies" value="${components.escapeHtml(patient.allergies)}"></div>
                     <button class="btn-primary" id="saveProfileBtn">Save Profile</button>
+                </div>
+            ` : `
+                <div class="settings-card">
+                    <h2>Doctor Account</h2>
+                    <p>Your doctor profile and contact information are managed by a clinic administrator.</p>
+                    <div class="form-group"><label for="doctor_username">Login Username</label><input type="text" id="doctor_username" minlength="3" maxlength="100" value="${components.escapeHtml(profile.username)}" required></div>
+                    <small>Usernames must be 3-100 characters with no spaces.</small>
+                    <button class="btn-primary" id="saveDoctorUsernameBtn">Save Username</button>
                 </div>
             `;
 
@@ -80,8 +93,8 @@ const app = {
                 <div class="settings-page">
                     <div class="settings-card">
                         <h1>Account Settings</h1>
-                        <div class="form-group"><label>Username</label><input type="text" disabled value="${profile.username}"></div>
-                        <div class="form-group"><label>Role</label><input type="text" disabled value="${profile.role}"></div>
+                        <div class="form-group"><label>Username</label><input type="text" id="profile_username" disabled value="${components.escapeHtml(profile.username)}"></div>
+                        <div class="form-group"><label>Role</label><input type="text" disabled value="${components.escapeHtml(profile.role)}"></div>
                     </div>
                     ${profileSection}
                     <div class="settings-card">
@@ -95,6 +108,31 @@ const app = {
             `;
 
             setTimeout(() => {
+                const saveDoctorUsernameBtn = document.getElementById('saveDoctorUsernameBtn');
+                if (saveDoctorUsernameBtn) {
+                    saveDoctorUsernameBtn.addEventListener('click', async () => {
+                        try {
+                            const username = document.getElementById('doctor_username').value.trim();
+                            if (username.length < 3 || username.length > 100 || /\s/.test(username)) {
+                                alert('Username must be 3-100 characters and contain no spaces.');
+                                return;
+                            }
+                            const result = await api.updateDoctorUsername(username);
+                            api.setToken(result.token);
+                            window.currentUser.username = result.username;
+                            localStorage.setItem('user', JSON.stringify(window.currentUser));
+                            document.getElementById('profile_username').value = result.username;
+                            document.getElementById('userInfo').innerHTML = `
+                                <i class="fas fa-user-circle"></i> ${components.escapeHtml(result.username)}<br>
+                                <small>Doctor</small>
+                            `;
+                            alert('Username updated successfully. Use it on your next login.');
+                        } catch (error) {
+                            alert(`Failed to update username: ${error.message}`);
+                        }
+                    });
+                }
+
                 const saveProfileBtn = document.getElementById('saveProfileBtn');
                 if (saveProfileBtn) {
                     saveProfileBtn.addEventListener('click', async () => {
@@ -143,38 +181,52 @@ const app = {
 
             return html;
         } catch (error) {
-            return `<div class="error">Error loading settings: ${error.message}</div>`;
+            return `<div class="error">Error loading settings: ${components.escapeHtml(error.message)}</div>`;
         }
     },
 
     async renderAppointments() {
         try {
-            let appointments = await api.getAppointments();
-            const isAdmin = window.currentUser.role === 'admin';
+            const appointments = await api.getAppointments();
+            const role = window.currentUser.role;
+            const isAdmin = role === 'admin';
+            const isDoctor = role === 'doctor';
 
-            const renderActions = isAdmin ? (row) => {
+            const renderActions = isDoctor ? (row) => row.status === 'pending' ? `
+                <button class="action-btn btn-edit" onclick="app.decideAppointment(${row.id}, 'approved')">Approve</button>
+                <button class="action-btn btn-delete" onclick="app.decideAppointment(${row.id}, 'rejected')">Reject</button>
+            ` : '' : isAdmin ? (row) => {
                 let buttons = `
                     <button class="action-btn btn-edit" onclick="app.editAppointment(${row.id})">Edit</button>
-                    <button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>
                 `;
-                if (row.status === 'confirmed') {
+                if (['pending', 'approved'].includes(row.status)) {
+                    buttons += `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>`;
+                }
+                if (row.status === 'approved') {
                     buttons += `<button class="action-btn" style="background:#10b981;" onclick="adminView.showAddMedicalRecordModal(${row.id}, ${row.patient_id}, ${row.doctor_id})">Add Medical Record</button>`;
                 }
                 return buttons;
-            } : (row) => row.status !== 'cancelled' ? `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>` : '';
+            } : (row) => ['pending', 'approved'].includes(row.status) ?
+                `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>` : '';
+
+            const columns = isDoctor ?
+                ['appointment_date', 'appointment_time', 'patient_first_name', 'patient_last_name', 'patient_email', 'patient_contact_number', 'status', 'notes'] :
+                isAdmin ?
+                    ['appointment_date', 'appointment_time', 'patient_first_name', 'doctor_first_name', 'status', 'rejection_reason', 'notes'] :
+                    ['appointment_date', 'appointment_time', 'doctor_first_name', 'doctor_last_name', 'specialization', 'status', 'rejection_reason', 'notes'];
 
             return `
-                <button class="btn-add" onclick="app.showBookAppointmentModal()">+ Book New Appointment</button>
+                ${!isDoctor ? `<button class="btn-add" onclick="app.showBookAppointmentModal()">+ Book New Appointment</button>` : ''}
                 <div class="data-table">
                     ${components.renderTable(
-                        ['appointment_date', 'appointment_time', 'patient_first_name', 'doctor_first_name', 'status', 'notes'],
+                        columns,
                         appointments,
                         renderActions
                     )}
                 </div>
             `;
         } catch (error) {
-            return `<div class="error">Error loading appointments: ${error.message}</div>`;
+            return `<div class="error">Error loading appointments: ${components.escapeHtml(error.message)}</div>`;
         }
     },
 
@@ -205,33 +257,103 @@ const app = {
     },
 
     async showBookAppointmentModal() {
-        const doctors = await api.getDoctors();
+        const doctors = (await api.getDoctors()).filter((doctor) => doctor.is_active !== false);
         const patients = window.currentUser.role === 'admin' ? await api.getPatients() : [];
-        const doctorOptions = doctors.map(d => `<option value="${d.id}">Dr. ${d.first_name} ${d.last_name} - ${d.specialization}</option>`).join('');
-        const patientOptions = window.currentUser.role === 'admin' ? patients.map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('') : '';
+        const doctorOptions = doctors.map(d => `<option value="${d.id}">Dr. ${components.escapeHtml(d.first_name)} ${components.escapeHtml(d.last_name)} - ${components.escapeHtml(d.specialization)}</option>`).join('');
+        const patientOptions = window.currentUser.role === 'admin' ? patients.map(p => `<option value="${p.id}">${components.escapeHtml(p.first_name)} ${components.escapeHtml(p.last_name)}</option>`).join('') : '';
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         const content = `
             ${window.currentUser.role === 'admin' ? `<div class="form-group"><label>Patient</label><select id="patient_id">${patientOptions}</select></div>` : ''}
-            <div class="form-group"><label>Doctor</label><select id="doctor_id">${doctorOptions}</select></div>
-            <div class="form-group"><label>Date</label><input type="date" id="appointment_date" required></div>
-            <div class="form-group"><label>Time</label><input type="time" id="appointment_time" required></div>
+            <div class="form-group"><label>Doctor</label><select id="doctor_id"><option value="">Select a doctor</option>${doctorOptions}</select></div>
+            <div class="form-group"><label>Date</label><input type="date" id="appointment_date" min="${today}" required></div>
+            <div class="form-group">
+                <label>Available time</label>
+                <select id="appointment_time" required disabled><option value="">Choose a doctor and date first</option></select>
+                <small id="availability_message">Choose a doctor and date to see available times.</small>
+            </div>
             <div class="form-group"><label>Notes</label><textarea id="notes"></textarea></div>
         `;
 
         components.showModal('Book Appointment', content, async () => {
+            const appointmentTime = document.getElementById('appointment_time').value;
+            const doctorId = document.getElementById('doctor_id').value;
+            const appointmentDate = document.getElementById('appointment_date').value;
+            if (!appointmentTime) {
+                alert('Please select an available appointment time.');
+                return false;
+            }
+            const doctorName = document.getElementById('doctor_id').selectedOptions[0].textContent;
+            if (!window.confirm(`Submit appointment request?\n\n${doctorName}\n${appointmentDate} at ${appointmentTime}\n\nThe appointment will remain pending until the doctor reviews it.`)) {
+                return false;
+            }
             const data = {
-                doctor_id: document.getElementById('doctor_id').value,
-                appointment_date: document.getElementById('appointment_date').value,
-                appointment_time: document.getElementById('appointment_time').value,
+                doctor_id: doctorId,
+                appointment_date: appointmentDate,
+                appointment_time: appointmentTime,
                 notes: document.getElementById('notes').value,
             };
             if (window.currentUser.role === 'admin') {
                 data.patient_id = document.getElementById('patient_id').value;
             }
-            await api.createAppointment(data);
-            alert('Appointment booked successfully');
+            try {
+                const result = await api.createAppointment(data);
+                alert(`Appointment request submitted successfully. Status: ${result.status || 'pending'}.`);
+            } catch (error) {
+                await loadAvailability();
+                throw error;
+            }
             app.loadView('appointments');
         });
+
+        const doctorSelect = document.getElementById('doctor_id');
+        const dateInput = document.getElementById('appointment_date');
+        const timeSelect = document.getElementById('appointment_time');
+        const message = document.getElementById('availability_message');
+        let availabilityRequest = 0;
+
+        const loadAvailability = async () => {
+            const requestId = ++availabilityRequest;
+            const doctorId = doctorSelect.value;
+            const date = dateInput.value;
+            timeSelect.replaceChildren();
+
+            if (!doctorId || !date) {
+                timeSelect.disabled = true;
+                timeSelect.add(new Option('Choose a doctor and date first', ''));
+                message.textContent = 'Choose a doctor and date to see available times.';
+                return;
+            }
+
+            timeSelect.disabled = true;
+            timeSelect.add(new Option('Loading available times...', ''));
+            message.textContent = 'Checking availability...';
+            try {
+                const availability = await api.getAppointmentAvailability(doctorId, date);
+                if (requestId !== availabilityRequest) return;
+                timeSelect.replaceChildren();
+                if (availability.available_slots.length === 0) {
+                    timeSelect.add(new Option('No available times', ''));
+                    message.textContent = 'No appointment times are available for this doctor and date.';
+                    return;
+                }
+
+                timeSelect.add(new Option('Select a time', ''));
+                availability.available_slots.forEach((time) => {
+                    timeSelect.add(new Option(time, time));
+                });
+                timeSelect.disabled = false;
+                message.textContent = `${availability.slot_duration_minutes}-minute appointment slots.`;
+            } catch (error) {
+                if (requestId !== availabilityRequest) return;
+                timeSelect.replaceChildren(new Option('Availability unavailable', ''));
+                message.textContent = error.message;
+            }
+        };
+
+        doctorSelect.addEventListener('change', loadAvailability);
+        dateInput.addEventListener('change', loadAvailability);
     },
 
     async editAppointment(id) {
@@ -247,12 +369,12 @@ const app = {
 
             const doctorOptions = doctors.map(d => {
                 const selected = d.id == appointment.doctor_id ? 'selected' : '';
-                return `<option value="${d.id}" ${selected}>Dr. ${d.first_name} ${d.last_name} - ${d.specialization}</option>`;
+                return `<option value="${d.id}" ${selected}>Dr. ${components.escapeHtml(d.first_name)} ${components.escapeHtml(d.last_name)} - ${components.escapeHtml(d.specialization)}</option>`;
             }).join('');
 
             const patientOptions = patients.map(p => {
                 const selected = p.id == appointment.patient_id ? 'selected' : '';
-                return `<option value="${p.id}" ${selected}>${p.first_name} ${p.last_name}</option>`;
+                return `<option value="${p.id}" ${selected}>${components.escapeHtml(p.first_name)} ${components.escapeHtml(p.last_name)}</option>`;
             }).join('');
 
             const apptDate = appointment.appointment_date ? String(appointment.appointment_date).split('T')[0] : '';
@@ -267,12 +389,14 @@ const app = {
                 <div class="form-group"><label>Status</label>
                     <select id="appointment_status">
                         <option value="pending" ${status === 'pending' ? 'selected' : ''}>pending</option>
-                        <option value="confirmed" ${status === 'confirmed' ? 'selected' : ''}>confirmed</option>
+                        <option value="approved" ${status === 'approved' ? 'selected' : ''}>approved</option>
+                        <option value="rejected" ${status === 'rejected' ? 'selected' : ''}>rejected</option>
                         <option value="completed" ${status === 'completed' ? 'selected' : ''}>completed</option>
                         <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>cancelled</option>
                     </select>
                 </div>
-                <div class="form-group"><label>Notes</label><textarea id="appointment_notes">${(appointment.notes || '').replace(/</g,'<')}</textarea></div>
+                <div class="form-group"><label>Rejection Reason</label><textarea id="appointment_rejection_reason">${components.escapeHtml(appointment.rejection_reason)}</textarea></div>
+                <div class="form-group"><label>Notes</label><textarea id="appointment_notes">${components.escapeHtml(appointment.notes)}</textarea></div>
             `;
 
             components.showModal('Edit Appointment', content, async () => {
@@ -282,6 +406,7 @@ const app = {
                     appointment_time: document.getElementById('appointment_time').value,
                     status: document.getElementById('appointment_status').value,
                     notes: document.getElementById('appointment_notes').value,
+                    rejection_reason: document.getElementById('appointment_rejection_reason').value,
                 };
                 if (window.currentUser.role === 'admin') {
                     data.patient_id = document.getElementById('appointment_patient_id').value;
@@ -326,6 +451,37 @@ const app = {
         } catch (error) {
             alert('Error editing medical record: ' + error.message);
         }
+    },
+
+    async decideAppointment(id, decision) {
+        if (decision === 'approved') {
+            if (!window.confirm('Approve this appointment request?')) return;
+            try {
+                await api.decideAppointment(id, decision);
+                alert('Appointment approved.');
+                await this.loadView('appointments');
+            } catch (error) {
+                alert(`Could not approve appointment: ${error.message}`);
+            }
+            return;
+        }
+
+        const content = `
+            <div class="form-group">
+                <label for="rejection_reason">Reason for rejection*</label>
+                <textarea id="rejection_reason" rows="4" required></textarea>
+            </div>
+        `;
+        components.showModal('Reject Appointment', content, async () => {
+            const reason = document.getElementById('rejection_reason').value.trim();
+            if (!reason) {
+                alert('Please provide a reason for rejecting this appointment.');
+                return false;
+            }
+            await api.decideAppointment(id, 'rejected', reason);
+            alert('Appointment rejected.');
+            await this.loadView('appointments');
+        });
     },
 
     async cancelAppointment(id) {

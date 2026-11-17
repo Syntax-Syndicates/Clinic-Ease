@@ -95,16 +95,22 @@ const auth = {
         document.getElementById('mainApp').classList.add('active');
 
         document.getElementById('userInfo').innerHTML = `
-            <i class="fas fa-user-circle"></i> ${user.username}<br>
-            <small>${user.role === 'admin' ? 'Administrator' : 'Patient'}</small>
+            <i class="fas fa-user-circle"></i> ${components.escapeHtml(user.username)}<br>
+            <small>${user.role === 'admin' ? 'Administrator' : user.role === 'doctor' ? 'Doctor' : 'Patient'}</small>
         `;
 
         // Setup navigation based on role
         const navMenu = document.getElementById('navMenu');
-        navMenu.innerHTML = `
+        const commonItems = user.role === 'doctor' ? `
+            <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
+            <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
+        ` : `
             <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
             <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
             <li data-view="medical-records"><i class="fas fa-notes-medical"></i><span>Medical Records</span></li>
+        `;
+        navMenu.innerHTML = `
+            ${commonItems}
             ${user.role === 'admin' ? `
                 <li data-view="patients"><i class="fas fa-users"></i><span>Patients</span></li>
                 <li data-view="doctors"><i class="fas fa-user-md"></i><span>Doctors</span></li>
