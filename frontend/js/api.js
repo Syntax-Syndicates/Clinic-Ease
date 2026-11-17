@@ -71,6 +71,7 @@ class API {
 
     // Patients
     getPatients() { return this.request('/patients'); }
+    getPatientDashboard() { return this.request('/patients/me/dashboard'); }
     getPatientById(id) { return this.request(`/patients/${id}`); }
     createPatient(data) { return this.request('/patients', { method: 'POST', body: JSON.stringify(data) }); }
     updatePatient(id, data) { return this.request(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
