@@ -1,5 +1,5 @@
 -- Stored procedure for appointment.cancel.
-DROP PROCEDURE IF EXISTS clinicease_appointment_cancel(jsonb);
+DROP PROCEDURE IF EXISTS clinicease_appointment_cancel(integer, integer);
 CREATE OR REPLACE PROCEDURE clinicease_appointment_cancel(
     IN p_id integer,
     IN p_patient_id integer,

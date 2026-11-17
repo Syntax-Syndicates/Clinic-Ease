@@ -37,6 +37,7 @@ const requiredProcedures = [
     'clinicease_medical_record_list_by_patient',
     'clinicease_medical_record_update',
     'clinicease_patient_create',
+    'clinicease_patient_dashboard',
     'clinicease_patient_delete',
     'clinicease_patient_find_by_id',
     'clinicease_patient_find_by_user_id',

@@ -21,6 +21,9 @@ const getPatientById = (id) =>
 const getPatientByUserId = (userId) =>
     callProcedure('CALL clinicease_patient_find_by_user_id($1, NULL)', [userId]);
 
+const getDashboardByUserId = (userId) =>
+    callProcedure('CALL clinicease_patient_dashboard($1, NULL)', [userId]);
+
 const createPatient = (patientData, userId) =>
     callProcedure('CALL clinicease_patient_create($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL)', [
         userId, ...patientParameters(patientData),
@@ -43,6 +46,7 @@ module.exports = {
     getAllPatients,
     getPatientById,
     getPatientByUserId,
+    getDashboardByUserId,
     createPatient,
     updatePatient,
     updatePatientByUserId,

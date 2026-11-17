@@ -24,6 +24,19 @@ const getPatientById = async (req, res) => {
     }
 };
 
+const getDashboard = async (req, res) => {
+    try {
+        const dashboard = await patientModel.getDashboardByUserId(req.user.id);
+        if (!dashboard) {
+            return res.status(404).json({ error: 'Patient profile not found' });
+        }
+        res.json(dashboard);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch patient dashboard' });
+    }
+};
+
 const createPatient = async (req, res) => {
     try {
         const { username, password, ...patientData } = req.body;
@@ -89,4 +102,11 @@ const deletePatient = async (req, res) => {
     }
 };
 
-module.exports = { getAllPatients, getPatientById, createPatient, updatePatient, deletePatient };
+module.exports = {
+    getAllPatients,
+    getPatientById,
+    getDashboard,
+    createPatient,
+    updatePatient,
+    deletePatient,
+};
