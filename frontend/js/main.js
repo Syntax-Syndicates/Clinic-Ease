@@ -47,6 +47,16 @@ const app = {
         }
     },
 
+    async navigateTo(view) {
+        await this.loadView(view);
+        const navItem = document.querySelector(`.nav-menu li[data-view="${view}"]`);
+        if (navItem) {
+            document.querySelectorAll('.nav-menu li').forEach((item) => item.classList.remove('active'));
+            navItem.classList.add('active');
+            document.getElementById('pageTitle').innerText = navItem.querySelector('span').innerText;
+        }
+    },
+
     async renderSettings(container) {
         try {
             const profile = await api.getProfile();
