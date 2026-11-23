@@ -31,6 +31,11 @@ const app = {
                 case 'appointments':
                     container.innerHTML = await this.renderAppointments();
                     break;
+                case 'schedule':
+                    if (window.currentUser.role === 'doctor') {
+                        container.innerHTML = await this.renderDoctorSchedule();
+                    }
+                    break;
                 case 'medical-records':
                     if (window.currentUser.role !== 'doctor') {
                         container.innerHTML = await this.renderMedicalRecords();
@@ -192,6 +197,183 @@ const app = {
             return html;
         } catch (error) {
             return `<div class="error">Error loading settings: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    async renderDoctorSchedule() {
+        try {
+            const schedule = await api.getDoctorSchedule();
+            const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const workingDays = schedule.working_days || [];
+            const dayCards = weekdays.map((day, weekday) => {
+                const hours = workingDays.filter((entry) => Number(entry.weekday) === weekday);
+                const timeRows = (hours.length ? hours : [null]).map((range) => `
+                    <span class="schedule-time-row" data-weekday="${weekday}">
+                        <input type="time" class="schedule-start" data-weekday="${weekday}" value="${range ? String(range.start_time).slice(0, 5) : '09:00'}" aria-label="${day} start time">
+                        <span>to</span>
+                        <input type="time" class="schedule-end" data-weekday="${weekday}" value="${range ? String(range.end_time).slice(0, 5) : '17:00'}" aria-label="${day} end time">
+                        <button class="schedule-remove-hours" type="button" data-weekday="${weekday}" aria-label="Remove ${day} hours"><i class="fas fa-times" aria-hidden="true"></i></button>
+                    </span>
+                `).join('');
+                return `
+                    <div class="schedule-day-card">
+                        <label class="schedule-day-toggle">
+                            <input type="checkbox" class="schedule-day-enabled" data-weekday="${weekday}" ${hours.length ? 'checked' : ''}>
+                            <strong>${day}</strong>
+                        </label>
+                        <span class="schedule-time-fields" data-weekday="${weekday}">
+                            ${timeRows}
+                            <button class="schedule-add-hours" type="button" data-weekday="${weekday}"><i class="fas fa-plus" aria-hidden="true"></i> Add hours</button>
+                        </span>
+                    </div>
+                `;
+            }).join('');
+            const unavailableDates = schedule.unavailable_dates || [];
+            const unavailableRows = unavailableDates.length
+                ? unavailableDates.map((item) => `
+                    <li class="unavailable-date-row">
+                        <span><strong>${components.escapeHtml(String(item.unavailable_date).slice(0, 10))}</strong>
+                        ${item.reason ? `<small>${components.escapeHtml(item.reason)}</small>` : ''}</span>
+                        <button class="action-btn btn-delete" type="button" onclick="app.removeUnavailableDate(${Number(item.id)})">Remove</button>
+                    </li>
+                `).join('')
+                : '<li class="schedule-empty-state">No unavailable dates added.</li>';
+            const today = new Date();
+            const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            setTimeout(() => {
+                const form = document.getElementById('doctorScheduleForm');
+                form?.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    this.saveDoctorSchedule();
+                });
+                document.getElementById('unavailabilityForm')?.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    this.addUnavailableDate();
+                });
+                document.querySelectorAll('.schedule-day-enabled').forEach((checkbox) => {
+                    checkbox.addEventListener('change', () => {
+                        const weekday = checkbox.dataset.weekday;
+                        document.querySelectorAll(`.schedule-time-fields[data-weekday="${weekday}"] input, .schedule-time-fields[data-weekday="${weekday}"] button`).forEach((control) => {
+                            control.disabled = !checkbox.checked;
+                        });
+                    });
+                    checkbox.dispatchEvent(new Event('change'));
+                });
+                document.querySelectorAll('.schedule-add-hours').forEach((button) => {
+                    button.addEventListener('click', () => this.addWorkingHoursRange(Number(button.dataset.weekday)));
+                });
+                document.querySelectorAll('.schedule-remove-hours').forEach((button) => {
+                    button.addEventListener('click', () => this.removeWorkingHoursRange(button.closest('.schedule-time-row')));
+                });
+            }, 0);
+
+            return `
+                <section class="schedule-page">
+                    <header class="schedule-page-heading">
+                        <div>
+                            <p class="patient-eyebrow">KEEP YOUR CALENDAR ACCURATE</p>
+                            <h2>Working hours</h2>
+                            <p>Patients can only book slots inside these hours. Changes take effect immediately.</p>
+                        </div>
+                        <span class="schedule-heading-icon"><i class="fas fa-calendar-check" aria-hidden="true"></i></span>
+                    </header>
+                    <form id="doctorScheduleForm" class="schedule-panel">
+                        <div class="schedule-days-grid">${dayCards}</div>
+                        <div class="schedule-duration-row">
+                            <label for="appointment_duration">Consultation length</label>
+                            <input id="appointment_duration" type="number" min="5" max="240" step="5" value="${Number(schedule.appointment_duration_minutes) || 30}" required>
+                            <span>minutes</span>
+                            <button class="btn-primary schedule-save-button" type="submit">Save working hours</button>
+                        </div>
+                    </form>
+                    <section class="schedule-panel unavailable-panel">
+                        <div class="schedule-panel-heading">
+                            <div><h2>Unavailable dates</h2><p>Block a full day so no new appointments can be booked.</p></div>
+                            <i class="fas fa-calendar-times" aria-hidden="true"></i>
+                        </div>
+                        <form id="unavailabilityForm" class="unavailability-form">
+                            <label class="schedule-field"><span>Date</span><input id="unavailable_date" type="date" min="${minDate}" required></label>
+                            <label class="schedule-field"><span>Reason (optional)</span><input id="unavailable_reason" type="text" maxlength="500" placeholder="e.g. Clinic closed"></label>
+                            <button class="btn-primary" type="submit">Block date</button>
+                        </form>
+                        <ul class="unavailable-date-list">${unavailableRows}</ul>
+                    </section>
+                </section>
+            `;
+        } catch (error) {
+            return `<div class="error">Error loading schedule: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    async saveDoctorSchedule() {
+        const workingDays = [];
+        document.querySelectorAll('.schedule-day-enabled:checked').forEach((checkbox) => {
+            const weekday = Number(checkbox.dataset.weekday);
+            document.querySelectorAll(`.schedule-time-row[data-weekday="${weekday}"]`).forEach((row) => {
+                workingDays.push({
+                    weekday,
+                    start_time: row.querySelector('.schedule-start').value,
+                    end_time: row.querySelector('.schedule-end').value,
+                });
+            });
+        });
+        try {
+            await api.updateDoctorSchedule({
+                working_days: workingDays,
+                appointment_duration_minutes: Number(document.getElementById('appointment_duration').value),
+            });
+            alert('Working hours saved. Booking availability has been updated.');
+            await this.loadView('schedule');
+        } catch (error) {
+            alert(`Could not save working hours: ${error.message}`);
+        }
+    },
+
+    addWorkingHoursRange(weekday) {
+        const container = document.querySelector(`.schedule-time-fields[data-weekday="${weekday}"]`);
+        if (!container) return;
+        const row = document.createElement('span');
+        row.className = 'schedule-time-row';
+        row.dataset.weekday = weekday;
+        row.innerHTML = `
+            <input type="time" class="schedule-start" data-weekday="${weekday}" value="13:00" aria-label="Start time">
+            <span>to</span>
+            <input type="time" class="schedule-end" data-weekday="${weekday}" value="17:00" aria-label="End time">
+            <button class="schedule-remove-hours" type="button" data-weekday="${weekday}" aria-label="Remove hours"><i class="fas fa-times" aria-hidden="true"></i></button>
+        `;
+        container.insertBefore(row, container.querySelector('.schedule-add-hours'));
+        row.querySelector('.schedule-remove-hours').addEventListener('click', () => this.removeWorkingHoursRange(row));
+    },
+
+    removeWorkingHoursRange(row) {
+        const weekday = row.dataset.weekday;
+        row.remove();
+        if (!document.querySelector(`.schedule-time-row[data-weekday="${weekday}"]`)) {
+            const checkbox = document.querySelector(`.schedule-day-enabled[data-weekday="${weekday}"]`);
+            checkbox.checked = false;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+    },
+
+    async addUnavailableDate() {
+        try {
+            await api.addDoctorUnavailableDate(
+                document.getElementById('unavailable_date').value,
+                document.getElementById('unavailable_reason').value.trim()
+            );
+            await this.loadView('schedule');
+        } catch (error) {
+            alert(`Could not block date: ${error.message}`);
+        }
+    },
+
+    async removeUnavailableDate(id) {
+        try {
+            await api.deleteDoctorUnavailableDate(id);
+            await this.loadView('schedule');
+        } catch (error) {
+            alert(`Could not remove unavailable date: ${error.message}`);
         }
     },
 

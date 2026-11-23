@@ -6,6 +6,7 @@ const {
     getAvailableSlots,
     hasOverlap,
     parseTime,
+    validateWorkingHours,
 } = require('../utils/appointmentAvailability');
 
 const now = new Date(2026, 10, 11, 12, 0);
@@ -59,4 +60,44 @@ test('detects overlapping appointment intervals', () => {
     assert.equal(hasOverlap('10:00', ['10:00:00']), true);
     assert.equal(hasOverlap('10:00', ['10:15:00']), true);
     assert.equal(hasOverlap('10:00', ['10:30:00']), false);
+});
+
+test('uses structured working hours, configured duration, and unavailable dates', () => {
+    const workingHours = [
+        { weekday: 1, start_time: '09:00', end_time: '12:00' },
+    ];
+    const slots = getAvailableSlots(workingHours, '2026-11-16', [], now, {
+        appointmentDurationMinutes: 45,
+    });
+
+    assert.deepEqual(slots, ['09:00', '09:45', '10:30', '11:15']);
+    assert.deepEqual(getAvailableSlots(workingHours, '2026-11-16', [], now, {
+        appointmentDurationMinutes: 45,
+        unavailableDates: ['2026-11-16'],
+    }), []);
+    assert.throws(() => assertAppointmentAvailableBySchedule(
+        workingHours,
+        '2026-11-16',
+        '09:30',
+        now,
+        { appointmentDurationMinutes: 45 }
+    ), /outside the doctor's availability/);
+    assert.throws(() => assertAppointmentAvailableBySchedule(
+        workingHours,
+        '2026-11-16',
+        '09:00',
+        now,
+        { appointmentDurationMinutes: 45, unavailableDates: ['2026-11-16'] }
+    ), /unavailable on the selected date/);
+});
+
+test('validates structured working hours and rejects overlapping intervals', () => {
+    assert.equal(validateWorkingHours([
+        { weekday: 1, start_time: '09:00', end_time: '12:00' },
+        { weekday: 1, start_time: '13:00', end_time: '17:00' },
+    ], 30).length, 2);
+    assert.throws(() => validateWorkingHours([
+        { weekday: 1, start_time: '09:00', end_time: '12:00' },
+        { weekday: 1, start_time: '11:00', end_time: '13:00' },
+    ], 30), /cannot overlap/);
 });

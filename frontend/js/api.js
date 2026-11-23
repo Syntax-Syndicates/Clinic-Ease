@@ -84,6 +84,19 @@ class API {
     updateDoctor(id, data) { return this.request(`/doctors/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     setDoctorActive(id, isActive) { return this.request(`/doctors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ is_active: isActive }) }); }
     deleteDoctor(id) { return this.request(`/doctors/${id}`, { method: 'DELETE' }); }
+    getDoctorSchedule() { return this.request('/doctors/me/schedule'); }
+    updateDoctorSchedule(data) {
+        return this.request('/doctors/me/schedule', { method: 'PUT', body: JSON.stringify(data) });
+    }
+    addDoctorUnavailableDate(date, reason) {
+        return this.request('/doctors/me/unavailability', {
+            method: 'POST',
+            body: JSON.stringify({ date, reason }),
+        });
+    }
+    deleteDoctorUnavailableDate(id) {
+        return this.request(`/doctors/me/unavailability/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    }
 
     // Appointments
     getAppointments() { return this.request('/appointments'); }

@@ -28,12 +28,21 @@ const getAvailabilityInputs = (doctorId, appointmentDate, excludeId) =>
 const getAppointmentAvailability = async (doctorId, appointmentDate) => {
     const inputs = await getAvailabilityInputs(doctorId, appointmentDate);
     if (!inputs) return null;
+    const appointmentDurationMinutes = Number(inputs.appointment_duration_minutes) || SLOT_DURATION_MINUTES;
+    const schedule = inputs.schedule_configured ? inputs.working_hours : inputs.schedule;
+    const unavailableDates = inputs.unavailable_dates || [];
 
     return {
         doctor_id: Number(doctorId),
         date: appointmentDate,
-        slot_duration_minutes: SLOT_DURATION_MINUTES,
-        available_slots: getAvailableSlots(inputs.schedule, appointmentDate, inputs.appointment_times),
+        slot_duration_minutes: appointmentDurationMinutes,
+        available_slots: getAvailableSlots(
+            schedule,
+            appointmentDate,
+            inputs.appointment_times,
+            new Date(),
+            { appointmentDurationMinutes, unavailableDates }
+        ),
     };
 };
 
@@ -43,14 +52,21 @@ const assertSlotAvailable = async (doctorId, appointmentDate, appointmentTime, e
         throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
     }
 
+    const appointmentDurationMinutes = Number(inputs.appointment_duration_minutes) || SLOT_DURATION_MINUTES;
     const start = assertAppointmentAvailableBySchedule(
-        inputs.schedule,
+        inputs.schedule_configured ? inputs.working_hours : inputs.schedule,
         appointmentDate,
-        appointmentTime
+        appointmentTime,
+        new Date(),
+        {
+            appointmentDurationMinutes,
+            unavailableDates: inputs.unavailable_dates || [],
+        }
     );
     if (hasOverlap(
         `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
-        inputs.appointment_times
+        inputs.appointment_times,
+        appointmentDurationMinutes
     )) {
         throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
     }

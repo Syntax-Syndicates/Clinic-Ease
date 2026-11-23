@@ -15,7 +15,7 @@ DECLARE
     v_doctor_id integer;
     v_patient_id integer;
     v_appointment_id integer;
-    v_schedule text;
+    v_duration integer;
     p_payload jsonb;
 BEGIN
     p_payload := jsonb_build_object(
@@ -28,12 +28,21 @@ BEGIN
     );
     v_doctor_id := (p_payload->>'doctor_id')::integer;
     v_patient_id := (p_payload->>'patient_id')::integer;
+    PERFORM pg_advisory_xact_lock(v_doctor_id, 0);
     PERFORM pg_advisory_xact_lock(v_doctor_id, hashtext(p_payload->>'appointment_date'));
-    SELECT schedule INTO v_schedule FROM doctors
+    SELECT appointment_duration_minutes INTO v_duration FROM doctors
     WHERE id = v_doctor_id AND is_deleted = FALSE AND is_active = TRUE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Doctor not found or is not accepting appointments.'
             USING ERRCODE = 'P0001', DETAIL = 'DOCTOR_UNAVAILABLE';
+    END IF;
+    IF NOT fn_doctor_schedule_allows_appointment(
+        v_doctor_id,
+        (p_payload->>'appointment_date')::date,
+        (p_payload->>'appointment_time')::time
+    ) THEN
+        RAISE EXCEPTION 'The selected time is outside the doctor''s availability.'
+            USING ERRCODE = 'P0001', DETAIL = 'SLOT_UNAVAILABLE';
     END IF;
     PERFORM 1 FROM patients WHERE id = v_patient_id AND is_deleted = FALSE;
     IF NOT FOUND THEN
@@ -45,8 +54,8 @@ BEGIN
           AND a.appointment_date = (p_payload->>'appointment_date')::date
           AND a.is_deleted = FALSE AND a.status NOT IN ('cancelled', 'rejected')
           AND (a.appointment_date + a.appointment_time)
-              < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + INTERVAL '30 minutes')
-          AND (a.appointment_date + a.appointment_time + INTERVAL '30 minutes')
+              < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + make_interval(mins => v_duration))
+          AND (a.appointment_date + a.appointment_time + make_interval(mins => v_duration))
               > ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time)
     ) THEN
         RAISE EXCEPTION 'The selected appointment slot is no longer available.'

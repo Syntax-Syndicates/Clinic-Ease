@@ -1072,6 +1072,242 @@ tbody td {
 }
 
 @media (max-width: 520px) {
+    .schedule-page {
+        display: grid;
+        gap: 20px;
+        max-width: 1080px;
+        margin: 0 auto;
+    }
+
+    .schedule-page-heading,
+    .schedule-panel {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 14px 34px rgba(17, 24, 39, 0.07);
+    }
+
+    .schedule-page-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 26px 30px;
+        background: linear-gradient(115deg, #ffffff 0%, #effaf8 68%, #fff4ef 100%);
+    }
+
+    .schedule-page-heading h2,
+    .schedule-panel-heading h2 {
+        margin: 0;
+        color: #123047;
+    }
+
+    .schedule-page-heading p:not(.patient-eyebrow),
+    .schedule-panel-heading p {
+        margin: 7px 0 0;
+        color: #64748b;
+    }
+
+    .schedule-heading-icon,
+    .schedule-panel-heading > i {
+        display: grid;
+        flex: 0 0 54px;
+        width: 54px;
+        height: 54px;
+        place-items: center;
+        border-radius: 17px;
+        background: rgba(21, 154, 140, 0.1);
+        color: #159a8c;
+        font-size: 23px;
+    }
+
+    .schedule-panel {
+        padding: 24px;
+    }
+
+    .schedule-days-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .schedule-day-card {
+        display: grid;
+        gap: 15px;
+        padding: 16px;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        background: #fbfdfe;
+    }
+
+    .schedule-day-toggle,
+    .schedule-time-fields,
+    .schedule-duration-row,
+    .schedule-panel-heading,
+    .unavailable-date-row,
+    .unavailability-form {
+        display: flex;
+        align-items: center;
+    }
+
+    .schedule-day-toggle {
+        gap: 10px;
+        color: #123047;
+    }
+
+    .schedule-day-toggle input {
+        accent-color: #159a8c;
+    }
+
+    .schedule-time-fields {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 9px;
+        color: #64748b;
+    }
+
+    .schedule-time-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .schedule-time-fields input,
+    .schedule-duration-row input,
+    .schedule-field input {
+        min-width: 0;
+        padding: 10px 11px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        color: #123047;
+        font: inherit;
+    }
+
+    .schedule-time-fields input {
+        flex: 1;
+    }
+
+    .schedule-add-hours,
+    .schedule-remove-hours {
+        border: 0;
+        background: transparent;
+        color: #128578;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .schedule-add-hours {
+        align-self: flex-start;
+        padding: 3px 0;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .schedule-remove-hours {
+        padding: 8px;
+        color: #64748b;
+    }
+
+    .schedule-add-hours:disabled,
+    .schedule-remove-hours:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    .schedule-duration-row {
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .schedule-duration-row label {
+        color: #334155;
+        font-weight: 700;
+    }
+
+    .schedule-save-button {
+        width: auto;
+        padding: 11px 18px;
+    }
+
+    .schedule-panel-heading {
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .schedule-panel-heading > i {
+        padding: 14px;
+        border-radius: 14px;
+        background: #fff3e5;
+        color: #bd6b14;
+    }
+
+    .unavailability-form {
+        align-items: flex-end;
+        gap: 12px;
+    }
+
+    .schedule-field {
+        display: grid;
+        flex: 1;
+        gap: 7px;
+        color: #475569;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .unavailability-form .btn-primary {
+        width: auto;
+        padding: 11px 18px;
+    }
+
+    .unavailable-date-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 18px;
+        list-style: none;
+    }
+
+    .unavailable-date-row {
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #fbfdfe;
+    }
+
+    .unavailable-date-row span {
+        display: grid;
+        gap: 3px;
+        color: #123047;
+    }
+
+    .unavailable-date-row small,
+    .schedule-empty-state {
+        color: #64748b;
+    }
+
+    @media (max-width: 720px) {
+        .schedule-days-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .schedule-duration-row,
+        .unavailability-form {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .schedule-duration-row input,
+        .schedule-save-button,
+        .unavailability-form .btn-primary {
+            width: 100%;
+        }
+    }
+
     .patient-welcome {
         padding: 22px;
     }

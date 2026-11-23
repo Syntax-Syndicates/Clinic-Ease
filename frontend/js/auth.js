@@ -104,6 +104,7 @@ const auth = {
         const commonItems = user.role === 'doctor' ? `
             <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
             <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
+            <li data-view="schedule"><i class="fas fa-clock"></i><span>My Schedule</span></li>
         ` : `
             <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
             <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>

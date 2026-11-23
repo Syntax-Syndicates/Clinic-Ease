@@ -87,7 +87,7 @@ const patientView = {
                 <section class="patient-welcome">
                     <div>
                         <p class="patient-eyebrow">YOUR CARE AT A GLANCE</p>
-                        <h2>Welcome back, ${components.escapeHtml(patientName)}!</h2>
+                        <h2>Welcome, ${components.escapeHtml(patientName)}!</h2>
                         <p>Here’s the latest on your appointments and care.</p>
                     </div>
                     <div class="patient-welcome-icon" aria-hidden="true"><i class="fas fa-heartbeat"></i></div>
