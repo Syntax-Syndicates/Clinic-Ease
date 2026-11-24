@@ -15,7 +15,7 @@ LANGUAGE plpgsql
 AS $procedure$
 DECLARE
     v_doctor_id integer;
-    v_schedule text;
+    v_appointment_duration integer;
     p_payload jsonb;
 BEGIN
     p_payload := jsonb_build_object(
@@ -29,18 +29,27 @@ BEGIN
         'rejection_reason', p_rejection_reason
     );
     v_doctor_id := (p_payload->>'doctor_id')::integer;
+    PERFORM pg_advisory_xact_lock(v_doctor_id, 0);
     PERFORM pg_advisory_xact_lock(v_doctor_id, hashtext(p_payload->>'appointment_date'));
-    PERFORM 1 FROM appointments
+    SELECT appointment_duration_minutes INTO v_appointment_duration FROM appointments
     WHERE id = (p_payload->>'id')::integer AND is_deleted = FALSE FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Appointment not found.' USING ERRCODE = 'P0002';
     END IF;
     IF p_payload->>'status' NOT IN ('cancelled', 'rejected', 'completed') THEN
-        SELECT schedule INTO v_schedule FROM doctors
+        PERFORM 1 FROM doctors
         WHERE id = v_doctor_id AND is_deleted = FALSE AND is_active = TRUE;
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Doctor not found or is not accepting appointments.'
                 USING ERRCODE = 'P0001', DETAIL = 'DOCTOR_UNAVAILABLE';
+        END IF;
+        IF NOT fn_doctor_schedule_allows_appointment(
+            v_doctor_id,
+            (p_payload->>'appointment_date')::date,
+            (p_payload->>'appointment_time')::time
+        ) THEN
+            RAISE EXCEPTION 'The selected time is outside the doctor''s availability.'
+                USING ERRCODE = 'P0001', DETAIL = 'SLOT_UNAVAILABLE';
         END IF;
         IF EXISTS (
             SELECT 1 FROM appointments a
@@ -49,8 +58,8 @@ BEGIN
               AND a.id <> (p_payload->>'id')::integer
               AND a.is_deleted = FALSE AND a.status NOT IN ('cancelled', 'rejected')
               AND (a.appointment_date + a.appointment_time)
-                  < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + INTERVAL '30 minutes')
-              AND (a.appointment_date + a.appointment_time + INTERVAL '30 minutes')
+                  < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + make_interval(mins => v_appointment_duration))
+              AND (a.appointment_date + a.appointment_time + make_interval(mins => a.appointment_duration_minutes))
                   > ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time)
         ) THEN
             RAISE EXCEPTION 'The selected appointment slot is no longer available.'

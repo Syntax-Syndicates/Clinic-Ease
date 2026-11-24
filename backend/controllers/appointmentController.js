@@ -109,7 +109,7 @@ const createAppointment = async (req, res) => {
             return res.status(400).json({ error: 'appointment_time is required.' });
         }
         parseDate(appointment_date);
-        parseTime(appointment_time);
+        parseTime(appointment_time, false);
 
         let patient_id = req.body.patient_id;
         if (req.user.role === 'patient') {
@@ -150,7 +150,7 @@ const updateAppointment = async (req, res) => {
             return res.status(400).json({ error: 'A rejection reason is required.' });
         }
         parseDate(appointment_date, new Date(), ['cancelled', 'rejected', 'completed'].includes(status));
-        parseTime(appointment_time, status !== 'cancelled');
+        parseTime(appointment_time, false);
         await appointmentModel.updateAppointment(Number(req.params.id), {
             ...req.body,
             patient_id: Number(patient_id),

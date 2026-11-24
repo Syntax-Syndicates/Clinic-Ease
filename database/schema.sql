@@ -33,11 +33,35 @@ CREATE TABLE doctors (
     last_name VARCHAR(100) NOT NULL,
     specialization VARCHAR(150),
     schedule TEXT,
+    schedule_configured BOOLEAN NOT NULL DEFAULT FALSE,
+    appointment_duration_minutes INTEGER NOT NULL DEFAULT 30
+        CONSTRAINT doctors_appointment_duration_check
+        CHECK (appointment_duration_minutes BETWEEN 5 AND 240 AND appointment_duration_minutes % 5 = 0),
     contact_number VARCHAR(20),
     email VARCHAR(150),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Structured doctor availability and date-specific exceptions
+CREATE TABLE doctor_schedules (
+    id SERIAL PRIMARY KEY,
+    doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    CHECK (start_time < end_time),
+    UNIQUE (doctor_id, weekday, start_time)
+);
+
+CREATE TABLE doctor_unavailability (
+    id SERIAL PRIMARY KEY,
+    doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    unavailable_date DATE NOT NULL,
+    reason VARCHAR(500),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (doctor_id, unavailable_date)
 );
 
 -- Appointments table
@@ -47,6 +71,9 @@ CREATE TABLE appointments (
     doctor_id INTEGER REFERENCES doctors(id) ON DELETE CASCADE,
     appointment_date DATE NOT NULL,
     appointment_time TIME NOT NULL,
+    appointment_duration_minutes INTEGER NOT NULL DEFAULT 30
+        CONSTRAINT appointments_duration_check
+        CHECK (appointment_duration_minutes BETWEEN 5 AND 240 AND appointment_duration_minutes % 5 = 0),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'cancelled')),
     notes TEXT,
     rejection_reason TEXT,

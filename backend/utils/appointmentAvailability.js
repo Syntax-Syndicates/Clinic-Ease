@@ -41,7 +41,7 @@ const parseDate = (value, now = new Date(), allowPast = false) => {
     return { year, month, day, weekday: date.getUTCDay() };
 };
 
-const parseTime = (value, requireSlotBoundary = true) => {
+const parseTime = (value, requireSlotBoundary = true, slotDurationMinutes = SLOT_DURATION_MINUTES) => {
     if (typeof value !== 'string') {
         throw new AvailabilityError('Time must use HH:MM format.');
     }
@@ -53,8 +53,8 @@ const parseTime = (value, requireSlotBoundary = true) => {
 
     const hour = Number(match[1]);
     const minute = Number(match[2]);
-    if (requireSlotBoundary && minute % SLOT_DURATION_MINUTES !== 0) {
-        throw new AvailabilityError('Appointment start times must be on a 30-minute boundary.');
+    if (requireSlotBoundary && minute % slotDurationMinutes !== 0) {
+        throw new AvailabilityError(`Appointment start times must be on a ${slotDurationMinutes}-minute boundary.`);
     }
 
     return hour * 60 + minute;
@@ -131,10 +131,69 @@ const formatTime = (minutes) => {
     return `${hour}:${minute}`;
 };
 
+const normalizeWorkingHours = (schedule) => {
+    if (Array.isArray(schedule)) {
+        return schedule.map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                throw new AvailabilityError('Each working day must include a weekday, start time, and end time.');
+            }
+            const weekday = entry.weekday;
+            if (typeof weekday !== 'number' || !Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+                throw new AvailabilityError('Working-day weekday must be between 0 (Sunday) and 6 (Saturday).');
+            }
+            const start = parseTime(String(entry.start_time).slice(0, 5), false);
+            const end = parseTime(String(entry.end_time).slice(0, 5), false);
+            if (start >= end) {
+                throw new AvailabilityError('Working-day end time must be after its start time.');
+            }
+            return { weekday, start, end };
+        });
+    }
+
+    return parseSchedule(schedule).flatMap((range) =>
+        range.days.map((weekday) => ({ weekday, start: range.start, end: range.end }))
+    );
+};
+
+const validateWorkingHours = (workingHours, appointmentDurationMinutes) => {
+    if (!Array.isArray(workingHours)) {
+        throw new AvailabilityError('working_days must be an array.');
+    }
+    if (!Number.isInteger(appointmentDurationMinutes) ||
+        appointmentDurationMinutes < 5 ||
+        appointmentDurationMinutes > 240 ||
+        appointmentDurationMinutes % 5 !== 0) {
+        throw new AvailabilityError('Appointment duration must be between 5 and 240 minutes in 5-minute increments.');
+    }
+
+    const ranges = normalizeWorkingHours(workingHours);
+    for (let index = 0; index < ranges.length; index += 1) {
+        for (let otherIndex = index + 1; otherIndex < ranges.length; otherIndex += 1) {
+            const range = ranges[index];
+            const other = ranges[otherIndex];
+            if (range.weekday === other.weekday && range.start < other.end && range.end > other.start) {
+                throw new AvailabilityError('Working hours for the same day cannot overlap.');
+            }
+        }
+    }
+    return ranges;
+};
+
 const timeToMinutes = (value) => {
     const match = String(value).match(/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/);
     if (!match) return null;
     return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const getOccupiedAppointment = (value, defaultDuration) => {
+    const time = typeof value === 'string' ? value : value && value.appointment_time;
+    const duration = value && typeof value === 'object'
+        ? Number(value.appointment_duration_minutes)
+        : defaultDuration;
+    return {
+        start: timeToMinutes(time),
+        duration: Number.isInteger(duration) && duration > 0 ? duration : defaultDuration,
+    };
 };
 
 const isInFuture = (date, startMinutes, now = new Date()) => {
@@ -144,16 +203,27 @@ const isInFuture = (date, startMinutes, now = new Date()) => {
     return startMinutes > now.getHours() * 60 + now.getMinutes();
 };
 
-const assertAppointmentAvailableBySchedule = (schedule, dateValue, timeValue, now = new Date()) => {
+const assertAppointmentAvailableBySchedule = (
+    schedule,
+    dateValue,
+    timeValue,
+    now = new Date(),
+    { appointmentDurationMinutes = SLOT_DURATION_MINUTES, unavailableDates = [] } = {}
+) => {
     const date = parseDate(dateValue, now);
-    const start = parseTime(timeValue);
+    const start = parseTime(timeValue, false);
     if (!isInFuture(dateValue, start, now)) {
         throw new AvailabilityError('Appointment time must be in the future.');
     }
+    if (unavailableDates.includes(dateValue)) {
+        throw new AvailabilityError('The doctor is unavailable on the selected date.', 409);
+    }
 
-    const ranges = parseSchedule(schedule).filter((range) => range.days.includes(date.weekday));
+    const ranges = normalizeWorkingHours(schedule).filter((range) => range.weekday === date.weekday);
     const withinSchedule = ranges.some((range) =>
-        start >= range.start && start + SLOT_DURATION_MINUTES <= range.end
+        start >= range.start &&
+        start + appointmentDurationMinutes <= range.end &&
+        (start - range.start) % appointmentDurationMinutes === 0
     );
     if (!withinSchedule) {
         throw new AvailabilityError("The selected time is outside the doctor's availability.", 409);
@@ -161,34 +231,42 @@ const assertAppointmentAvailableBySchedule = (schedule, dateValue, timeValue, no
     return start;
 };
 
-const hasOverlap = (timeValue, occupiedTimes) => {
+const hasOverlap = (timeValue, occupiedTimes, appointmentDurationMinutes = SLOT_DURATION_MINUTES) => {
     const start = timeToMinutes(timeValue);
     if (start === null) return true;
-    const end = start + SLOT_DURATION_MINUTES;
+    const end = start + appointmentDurationMinutes;
 
     return occupiedTimes.some((value) => {
-        const occupiedStart = timeToMinutes(value);
-        if (occupiedStart === null) return true;
-        const occupiedEnd = occupiedStart + SLOT_DURATION_MINUTES;
-        return start < occupiedEnd && end > occupiedStart;
+        const occupiedAppointment = getOccupiedAppointment(value, appointmentDurationMinutes);
+        if (occupiedAppointment.start === null) return true;
+        const occupiedEnd = occupiedAppointment.start + occupiedAppointment.duration;
+        return start < occupiedEnd && end > occupiedAppointment.start;
     });
 };
 
-const getAvailableSlots = (schedule, dateValue, occupiedTimes = [], now = new Date()) => {
+const getAvailableSlots = (
+    schedule,
+    dateValue,
+    occupiedTimes = [],
+    now = new Date(),
+    { appointmentDurationMinutes = SLOT_DURATION_MINUTES, unavailableDates = [] } = {}
+) => {
     const date = parseDate(dateValue, now);
-    const occupied = occupiedTimes.map(timeToMinutes);
-    const ranges = parseSchedule(schedule).filter((range) => range.days.includes(date.weekday));
+    if (unavailableDates.includes(dateValue)) return [];
+    const occupied = occupiedTimes.map((value) =>
+        getOccupiedAppointment(value, appointmentDurationMinutes)
+    );
+    const ranges = normalizeWorkingHours(schedule).filter((range) => range.weekday === date.weekday);
     const slots = new Set();
 
     for (const range of ranges) {
-        const firstSlot = Math.ceil(range.start / SLOT_DURATION_MINUTES) * SLOT_DURATION_MINUTES;
-        for (let start = firstSlot; start + SLOT_DURATION_MINUTES <= range.end; start += SLOT_DURATION_MINUTES) {
+        for (let start = range.start; start + appointmentDurationMinutes <= range.end; start += appointmentDurationMinutes) {
             if (
                 isInFuture(dateValue, start, now) &&
-                !occupied.some((occupiedStart) =>
-                    occupiedStart !== null &&
-                    start < occupiedStart + SLOT_DURATION_MINUTES &&
-                    start + SLOT_DURATION_MINUTES > occupiedStart
+                !occupied.some((occupiedAppointment) =>
+                    occupiedAppointment.start !== null &&
+                    start < occupiedAppointment.start + occupiedAppointment.duration &&
+                    start + appointmentDurationMinutes > occupiedAppointment.start
                 )
             ) {
                 slots.add(formatTime(start));
@@ -208,4 +286,6 @@ module.exports = {
     parseDate,
     parseTime,
     parseSchedule,
+    normalizeWorkingHours,
+    validateWorkingHours,
 };

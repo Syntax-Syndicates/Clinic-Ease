@@ -28,29 +28,53 @@ const getAvailabilityInputs = (doctorId, appointmentDate, excludeId) =>
 const getAppointmentAvailability = async (doctorId, appointmentDate) => {
     const inputs = await getAvailabilityInputs(doctorId, appointmentDate);
     if (!inputs) return null;
+    const appointmentDurationMinutes = Number(inputs.appointment_duration_minutes) || SLOT_DURATION_MINUTES;
+    const schedule = inputs.schedule_configured ? inputs.working_hours : inputs.schedule;
+    const unavailableDates = inputs.unavailable_dates || [];
 
     return {
         doctor_id: Number(doctorId),
         date: appointmentDate,
-        slot_duration_minutes: SLOT_DURATION_MINUTES,
-        available_slots: getAvailableSlots(inputs.schedule, appointmentDate, inputs.appointment_times),
+        slot_duration_minutes: appointmentDurationMinutes,
+        available_slots: getAvailableSlots(
+            schedule,
+            appointmentDate,
+            inputs.appointment_times,
+            new Date(),
+            { appointmentDurationMinutes, unavailableDates }
+        ),
     };
 };
 
-const assertSlotAvailable = async (doctorId, appointmentDate, appointmentTime, excludeId) => {
+const assertSlotAvailable = async (
+    doctorId,
+    appointmentDate,
+    appointmentTime,
+    excludeId,
+    occupiedAppointmentDurationMinutes
+) => {
     const inputs = await getAvailabilityInputs(doctorId, appointmentDate, excludeId);
     if (!inputs) {
         throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
     }
 
+    const appointmentDurationMinutes = Number(inputs.appointment_duration_minutes) || SLOT_DURATION_MINUTES;
     const start = assertAppointmentAvailableBySchedule(
-        inputs.schedule,
+        inputs.schedule_configured ? inputs.working_hours : inputs.schedule,
         appointmentDate,
-        appointmentTime
+        appointmentTime,
+        new Date(),
+        {
+            appointmentDurationMinutes,
+            unavailableDates: inputs.unavailable_dates || [],
+        }
     );
     if (hasOverlap(
         `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
-        inputs.appointment_times
+        inputs.appointment_times,
+        Number.isInteger(occupiedAppointmentDurationMinutes)
+            ? occupiedAppointmentDurationMinutes
+            : appointmentDurationMinutes
     )) {
         throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
     }
@@ -95,11 +119,18 @@ const updateAppointment = async (id, appointmentData) => {
     const {
         patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason,
     } = appointmentData;
-    if (!await getAppointmentById(id)) {
+    const existingAppointment = await getAppointmentById(id);
+    if (!existingAppointment) {
         throw new AvailabilityError('Appointment not found.', 404);
     }
     if (!['cancelled', 'rejected', 'completed'].includes(status)) {
-        await assertSlotAvailable(doctor_id, appointment_date, appointment_time, id);
+        await assertSlotAvailable(
+            doctor_id,
+            appointment_date,
+            appointment_time,
+            id,
+            Number(existingAppointment.appointment_duration_minutes)
+        );
     }
     try {
         return await callProcedure('CALL clinicease_appointment_update($1, $2, $3, $4, $5, $6, $7, $8, NULL)', [
