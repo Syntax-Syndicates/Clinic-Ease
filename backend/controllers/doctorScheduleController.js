@@ -21,13 +21,18 @@ const getMySchedule = async (req, res) => {
         const schedule = await doctorScheduleModel.getDoctorSchedule(req.user.doctorId);
         if (!schedule) return res.status(404).json({ error: 'Doctor profile not found.' });
         if (!schedule.schedule_configured) {
-            schedule.working_days = parseSchedule(schedule.legacy_schedule).flatMap((range) =>
-                range.days.map((weekday) => ({
-                    weekday,
-                    start_time: `${String(Math.floor(range.start / 60)).padStart(2, '0')}:${String(range.start % 60).padStart(2, '0')}`,
-                    end_time: `${String(Math.floor(range.end / 60)).padStart(2, '0')}:${String(range.end % 60).padStart(2, '0')}`,
-                }))
-            );
+            const legacySchedule = typeof schedule.legacy_schedule === 'string'
+                ? schedule.legacy_schedule.trim()
+                : '';
+            schedule.working_days = legacySchedule
+                ? parseSchedule(legacySchedule).flatMap((range) =>
+                    range.days.map((weekday) => ({
+                        weekday,
+                        start_time: `${String(Math.floor(range.start / 60)).padStart(2, '0')}:${String(range.start % 60).padStart(2, '0')}`,
+                        end_time: `${String(Math.floor(range.end / 60)).padStart(2, '0')}:${String(range.end % 60).padStart(2, '0')}`,
+                    }))
+                )
+                : [];
         }
         res.json(schedule);
     } catch (error) {

@@ -185,6 +185,17 @@ const timeToMinutes = (value) => {
     return Number(match[1]) * 60 + Number(match[2]);
 };
 
+const getOccupiedAppointment = (value, defaultDuration) => {
+    const time = typeof value === 'string' ? value : value && value.appointment_time;
+    const duration = value && typeof value === 'object'
+        ? Number(value.appointment_duration_minutes)
+        : defaultDuration;
+    return {
+        start: timeToMinutes(time),
+        duration: Number.isInteger(duration) && duration > 0 ? duration : defaultDuration,
+    };
+};
+
 const isInFuture = (date, startMinutes, now = new Date()) => {
     const today = localDateString(now);
     if (date > today) return true;
@@ -226,10 +237,10 @@ const hasOverlap = (timeValue, occupiedTimes, appointmentDurationMinutes = SLOT_
     const end = start + appointmentDurationMinutes;
 
     return occupiedTimes.some((value) => {
-        const occupiedStart = timeToMinutes(value);
-        if (occupiedStart === null) return true;
-        const occupiedEnd = occupiedStart + appointmentDurationMinutes;
-        return start < occupiedEnd && end > occupiedStart;
+        const occupiedAppointment = getOccupiedAppointment(value, appointmentDurationMinutes);
+        if (occupiedAppointment.start === null) return true;
+        const occupiedEnd = occupiedAppointment.start + occupiedAppointment.duration;
+        return start < occupiedEnd && end > occupiedAppointment.start;
     });
 };
 
@@ -242,7 +253,9 @@ const getAvailableSlots = (
 ) => {
     const date = parseDate(dateValue, now);
     if (unavailableDates.includes(dateValue)) return [];
-    const occupied = occupiedTimes.map(timeToMinutes);
+    const occupied = occupiedTimes.map((value) =>
+        getOccupiedAppointment(value, appointmentDurationMinutes)
+    );
     const ranges = normalizeWorkingHours(schedule).filter((range) => range.weekday === date.weekday);
     const slots = new Set();
 
@@ -250,10 +263,10 @@ const getAvailableSlots = (
         for (let start = range.start; start + appointmentDurationMinutes <= range.end; start += appointmentDurationMinutes) {
             if (
                 isInFuture(dateValue, start, now) &&
-                !occupied.some((occupiedStart) =>
-                    occupiedStart !== null &&
-                    start < occupiedStart + appointmentDurationMinutes &&
-                    start + appointmentDurationMinutes > occupiedStart
+                !occupied.some((occupiedAppointment) =>
+                    occupiedAppointment.start !== null &&
+                    start < occupiedAppointment.start + occupiedAppointment.duration &&
+                    start + appointmentDurationMinutes > occupiedAppointment.start
                 )
             ) {
                 slots.add(formatTime(start));

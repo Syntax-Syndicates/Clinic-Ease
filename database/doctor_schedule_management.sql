@@ -5,6 +5,34 @@ ALTER TABLE doctors
     ADD COLUMN IF NOT EXISTS schedule_configured BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS appointment_duration_minutes INTEGER NOT NULL DEFAULT 30;
 
+ALTER TABLE appointments
+    ADD COLUMN IF NOT EXISTS appointment_duration_minutes INTEGER;
+
+UPDATE appointments a
+SET appointment_duration_minutes = COALESCE((
+    SELECT d.appointment_duration_minutes
+    FROM doctors d
+    WHERE d.id = a.doctor_id
+), 30)
+WHERE a.appointment_duration_minutes IS NULL;
+
+ALTER TABLE appointments
+    ALTER COLUMN appointment_duration_minutes SET DEFAULT 30,
+    ALTER COLUMN appointment_duration_minutes SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'appointments_duration_check'
+    ) THEN
+        ALTER TABLE appointments
+            ADD CONSTRAINT appointments_duration_check
+            CHECK (appointment_duration_minutes BETWEEN 5 AND 240
+                AND appointment_duration_minutes % 5 = 0);
+    END IF;
+END;
+$$;
+
 DO $$
 BEGIN
     IF NOT EXISTS (

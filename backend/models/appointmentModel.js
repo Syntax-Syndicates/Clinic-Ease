@@ -46,7 +46,13 @@ const getAppointmentAvailability = async (doctorId, appointmentDate) => {
     };
 };
 
-const assertSlotAvailable = async (doctorId, appointmentDate, appointmentTime, excludeId) => {
+const assertSlotAvailable = async (
+    doctorId,
+    appointmentDate,
+    appointmentTime,
+    excludeId,
+    occupiedAppointmentDurationMinutes
+) => {
     const inputs = await getAvailabilityInputs(doctorId, appointmentDate, excludeId);
     if (!inputs) {
         throw new AvailabilityError('Doctor not found or is not accepting appointments.', 404);
@@ -66,7 +72,9 @@ const assertSlotAvailable = async (doctorId, appointmentDate, appointmentTime, e
     if (hasOverlap(
         `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`,
         inputs.appointment_times,
-        appointmentDurationMinutes
+        Number.isInteger(occupiedAppointmentDurationMinutes)
+            ? occupiedAppointmentDurationMinutes
+            : appointmentDurationMinutes
     )) {
         throw new AvailabilityError('The selected appointment slot is no longer available.', 409);
     }
@@ -111,11 +119,18 @@ const updateAppointment = async (id, appointmentData) => {
     const {
         patient_id, doctor_id, appointment_date, appointment_time, status, notes, rejection_reason,
     } = appointmentData;
-    if (!await getAppointmentById(id)) {
+    const existingAppointment = await getAppointmentById(id);
+    if (!existingAppointment) {
         throw new AvailabilityError('Appointment not found.', 404);
     }
     if (!['cancelled', 'rejected', 'completed'].includes(status)) {
-        await assertSlotAvailable(doctor_id, appointment_date, appointment_time, id);
+        await assertSlotAvailable(
+            doctor_id,
+            appointment_date,
+            appointment_time,
+            id,
+            Number(existingAppointment.appointment_duration_minutes)
+        );
     }
     try {
         return await callProcedure('CALL clinicease_appointment_update($1, $2, $3, $4, $5, $6, $7, $8, NULL)', [

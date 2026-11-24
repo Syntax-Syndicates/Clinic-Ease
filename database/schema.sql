@@ -71,6 +71,9 @@ CREATE TABLE appointments (
     doctor_id INTEGER REFERENCES doctors(id) ON DELETE CASCADE,
     appointment_date DATE NOT NULL,
     appointment_time TIME NOT NULL,
+    appointment_duration_minutes INTEGER NOT NULL DEFAULT 30
+        CONSTRAINT appointments_duration_check
+        CHECK (appointment_duration_minutes BETWEEN 5 AND 240 AND appointment_duration_minutes % 5 = 0),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'cancelled')),
     notes TEXT,
     rejection_reason TEXT,

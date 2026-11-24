@@ -15,7 +15,7 @@ LANGUAGE plpgsql
 AS $procedure$
 DECLARE
     v_doctor_id integer;
-    v_duration integer;
+    v_appointment_duration integer;
     p_payload jsonb;
 BEGIN
     p_payload := jsonb_build_object(
@@ -31,13 +31,13 @@ BEGIN
     v_doctor_id := (p_payload->>'doctor_id')::integer;
     PERFORM pg_advisory_xact_lock(v_doctor_id, 0);
     PERFORM pg_advisory_xact_lock(v_doctor_id, hashtext(p_payload->>'appointment_date'));
-    PERFORM 1 FROM appointments
+    SELECT appointment_duration_minutes INTO v_appointment_duration FROM appointments
     WHERE id = (p_payload->>'id')::integer AND is_deleted = FALSE FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Appointment not found.' USING ERRCODE = 'P0002';
     END IF;
     IF p_payload->>'status' NOT IN ('cancelled', 'rejected', 'completed') THEN
-        SELECT appointment_duration_minutes INTO v_duration FROM doctors
+        PERFORM 1 FROM doctors
         WHERE id = v_doctor_id AND is_deleted = FALSE AND is_active = TRUE;
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Doctor not found or is not accepting appointments.'
@@ -58,8 +58,8 @@ BEGIN
               AND a.id <> (p_payload->>'id')::integer
               AND a.is_deleted = FALSE AND a.status NOT IN ('cancelled', 'rejected')
               AND (a.appointment_date + a.appointment_time)
-                  < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + make_interval(mins => v_duration))
-              AND (a.appointment_date + a.appointment_time + make_interval(mins => v_duration))
+                  < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + make_interval(mins => v_appointment_duration))
+              AND (a.appointment_date + a.appointment_time + make_interval(mins => a.appointment_duration_minutes))
                   > ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time)
         ) THEN
             RAISE EXCEPTION 'The selected appointment slot is no longer available.'

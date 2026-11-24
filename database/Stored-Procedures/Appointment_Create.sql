@@ -55,19 +55,21 @@ BEGIN
           AND a.is_deleted = FALSE AND a.status NOT IN ('cancelled', 'rejected')
           AND (a.appointment_date + a.appointment_time)
               < ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time + make_interval(mins => v_duration))
-          AND (a.appointment_date + a.appointment_time + make_interval(mins => v_duration))
+          AND (a.appointment_date + a.appointment_time + make_interval(mins => a.appointment_duration_minutes))
               > ((p_payload->>'appointment_date')::date + (p_payload->>'appointment_time')::time)
     ) THEN
         RAISE EXCEPTION 'The selected appointment slot is no longer available.'
             USING ERRCODE = 'P0001', DETAIL = 'SLOT_UNAVAILABLE';
     END IF;
     INSERT INTO appointments (
-        patient_id, doctor_id, appointment_date, appointment_time, status, notes
+        patient_id, doctor_id, appointment_date, appointment_time,
+        appointment_duration_minutes, status, notes
     )
     VALUES (
         v_patient_id, v_doctor_id,
         (p_payload->>'appointment_date')::date,
         (p_payload->>'appointment_time')::time,
+        v_duration,
         COALESCE(p_payload->>'status', 'pending'),
         p_payload->>'notes'
     )

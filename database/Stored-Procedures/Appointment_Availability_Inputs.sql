@@ -41,7 +41,10 @@ BEGIN
                 WHERE u.doctor_id = d.id
                   AND u.unavailable_date = (p_payload->>'date')::date
             ) THEN jsonb_build_array((p_payload->>'date')::date) ELSE '[]'::jsonb END,
-            'appointment_times', COALESCE(jsonb_agg(a.appointment_time ORDER BY a.appointment_time)
+            'appointment_times', COALESCE(jsonb_agg(jsonb_build_object(
+                'appointment_time', a.appointment_time,
+                'appointment_duration_minutes', a.appointment_duration_minutes
+            ) ORDER BY a.appointment_time)
                 FILTER (WHERE a.id IS NOT NULL), '[]'::jsonb)
         )
         INTO result
