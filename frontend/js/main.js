@@ -1,6 +1,10 @@
 // frontend/js/main.js
 const app = {
     async loadView(view) {
+        if (this.queueRefreshTimer) {
+            clearInterval(this.queueRefreshTimer);
+            this.queueRefreshTimer = null;
+        }
         const container = document.getElementById('viewContainer');
         try {
             switch(view) {
@@ -30,6 +34,13 @@ const app = {
                     break;
                 case 'appointments':
                     container.innerHTML = await this.renderAppointments();
+                    break;
+                case 'queue':
+                    if (window.currentUser.role === 'patient') {
+                        container.innerHTML = await this.renderPatientQueue();
+                    } else if (['admin', 'doctor'].includes(window.currentUser.role)) {
+                        container.innerHTML = await this.renderQueue();
+                    }
                     break;
                 case 'schedule':
                     if (window.currentUser.role === 'doctor') {
@@ -209,9 +220,9 @@ const app = {
                 const hours = workingDays.filter((entry) => Number(entry.weekday) === weekday);
                 const timeRows = (hours.length ? hours : [null]).map((range) => `
                     <span class="schedule-time-row" data-weekday="${weekday}">
-                        <input type="time" class="schedule-start" data-weekday="${weekday}" value="${range ? String(range.start_time).slice(0, 5) : '09:00'}" aria-label="${day} start time">
+                        <input type="time" class="schedule-start" data-weekday="${weekday}" value="${range ? String(range.start_time).slice(0, 5) : '09:00'}" aria-label="${day} start time" required>
                         <span>to</span>
-                        <input type="time" class="schedule-end" data-weekday="${weekday}" value="${range ? String(range.end_time).slice(0, 5) : '17:00'}" aria-label="${day} end time">
+                        <input type="time" class="schedule-end" data-weekday="${weekday}" value="${range ? String(range.end_time).slice(0, 5) : '17:00'}" aria-label="${day} end time" required>
                         <button class="schedule-remove-hours" type="button" data-weekday="${weekday}" aria-label="Remove ${day} hours"><i class="fas fa-times" aria-hidden="true"></i></button>
                     </span>
                 `).join('');
@@ -274,7 +285,7 @@ const app = {
                         <div>
                             <p class="patient-eyebrow">KEEP YOUR CALENDAR ACCURATE</p>
                             <h2>Working hours</h2>
-                            <p>Patients can only book slots inside these hours. Changes take effect immediately.</p>
+                            <p>Patients can only book slots inside these hours. Use Add hours for another time block, such as a split shift. Time blocks cannot overlap.</p>
                         </div>
                         <span class="schedule-heading-icon"><i class="fas fa-calendar-check" aria-hidden="true"></i></span>
                     </header>
@@ -306,6 +317,302 @@ const app = {
         }
     },
 
+    async renderQueue() {
+        try {
+            const isAdmin = window.currentUser.role === 'admin';
+            const doctors = isAdmin
+                ? (await api.getDoctors()).filter((doctor) => doctor.is_active !== false)
+                : [];
+            const patients = isAdmin ? await api.getPatients() : [];
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const initialDoctorId = isAdmin ? doctors[0]?.id : null;
+            const queue = isAdmin && !initialDoctorId
+                ? []
+                : await api.getQueue(today, initialDoctorId);
+            const doctorOptions = doctors.map((doctor, index) => `
+                <option value="${Number(doctor.id)}" ${index === 0 ? 'selected' : ''}>
+                    Dr. ${components.escapeHtml(doctor.first_name)} ${components.escapeHtml(doctor.last_name)}
+                </option>
+            `).join('');
+            const patientOptions = patients.map((patient) => `
+                <option value="${Number(patient.id)}">
+                    ${components.escapeHtml(patient.first_name)} ${components.escapeHtml(patient.last_name)}
+                </option>
+            `).join('');
+
+            this.queueRefreshTimer = setTimeout(() => {
+                if (!document.getElementById('queueDisplay')) return;
+                document.getElementById('queueDate')?.addEventListener('change', () => this.refreshQueueDisplay());
+                document.getElementById('queueDoctor')?.addEventListener('change', () => this.refreshQueueDisplay());
+                document.getElementById('queueWalkInForm')?.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    this.registerQueueWalkIn();
+                });
+                this.queueRefreshTimer = setInterval(() => this.refreshQueueDisplay(), 10000);
+            }, 0);
+
+            return `
+                <section class="queue-page">
+                    <header class="queue-page-heading">
+                        <div>
+                            <p class="patient-eyebrow">LIVE PATIENT FLOW</p>
+                            <h2>Patient queue</h2>
+                            <p>Queue numbers are shared across the clinic and reset each date. Status refreshes every 10 seconds.</p>
+                        </div>
+                        <span class="queue-heading-icon"><i class="fas fa-users" aria-hidden="true"></i></span>
+                    </header>
+                    <div class="queue-filter-panel">
+                        ${isAdmin ? `
+                            <label class="queue-field"><span>Doctor</span>
+                                <select id="queueDoctor">${doctorOptions || '<option value="">No active doctors</option>'}</select>
+                            </label>
+                        ` : ''}
+                        <label class="queue-field"><span>Queue date</span><input id="queueDate" type="date" value="${today}" required></label>
+                    </div>
+                    ${isAdmin ? `
+                        <form id="queueWalkInForm" class="queue-walk-in-panel">
+                            <h3>Register walk-in</h3>
+                            <label class="queue-field"><span>Registered patient</span>
+                                <select id="queueWalkInPatient" required>
+                                    <option value="">Select a patient</option>${patientOptions}
+                                </select>
+                            </label>
+                            <label class="queue-field"><span>Doctor</span>
+                                <select id="queueWalkInDoctor" required>
+                                    <option value="">Select a doctor</option>${doctorOptions}
+                                </select>
+                            </label>
+                            <button class="btn-primary" type="submit" ${!doctors.length || !patients.length ? 'disabled' : ''}>Add to today's queue</button>
+                        </form>
+                    ` : ''}
+                    <div id="queueDisplay">${this.renderQueueDisplay(queue, today)}</div>
+                </section>
+            `;
+        } catch (error) {
+            return `<div class="error">Error loading patient queue: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    async renderPatientQueue() {
+        try {
+            const queue = await api.getMyQueue();
+            this.queueRefreshTimer = setTimeout(() => {
+                if (!document.getElementById('myQueueDisplay')) return;
+                this.queueRefreshTimer = setInterval(() => this.refreshPatientQueue(), 10000);
+            }, 0);
+
+            return `
+                <section class="queue-page">
+                    <header class="queue-page-heading">
+                        <div>
+                            <p class="patient-eyebrow">YOUR APPOINTMENT STATUS</p>
+                            <h2>My queue</h2>
+                            <p>Your queue number, progress, and currently serving number update every 10 seconds.</p>
+                        </div>
+                        <span class="queue-heading-icon"><i class="fas fa-ticket" aria-hidden="true"></i></span>
+                    </header>
+                    <div id="myQueueDisplay">${this.renderPatientQueueDisplay(queue)}</div>
+                </section>
+            `;
+        } catch (error) {
+            return `<div class="error">Error loading your queue: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    renderPatientQueueDisplay(queue) {
+        if (!queue.length) {
+            return `
+                <section class="queue-list-section">
+                    <p class="queue-empty-state">No approved appointment has a queue number yet. Your doctor assigns one when approving your appointment.</p>
+                </section>
+            `;
+        }
+
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return `
+            <section class="queue-list-section">
+                <h3>Your appointments</h3>
+                <div class="patient-queue-list">
+                    ${queue.map((entry) => {
+                        const appointmentDate = String(entry.appointment_date).slice(0, 10);
+                        const isToday = appointmentDate === today;
+                        const currentServing = isToday && entry.current_serving_number
+                            ? `Q${String(Number(entry.current_serving_number)).padStart(3, '0')}`
+                            : 'Not started';
+                        const ahead = isToday && entry.queue_status === 'waiting'
+                            ? Number(entry.patients_waiting_ahead)
+                            : null;
+                        const appointmentTime = components.escapeHtml(String(entry.appointment_time || '').slice(0, 5));
+                        const doctorName = `Dr. ${components.escapeHtml(entry.doctor_first_name)} ${components.escapeHtml(entry.doctor_last_name)}`;
+                        const specialization = entry.specialization
+                            ? ` · ${components.escapeHtml(entry.specialization)}`
+                            : '';
+                        const status = entry.queue_status.charAt(0).toUpperCase() + entry.queue_status.slice(1);
+                        return `
+                            <article class="patient-queue-card">
+                                <div class="patient-queue-card-heading">
+                                    <div>
+                                        <strong>${doctorName}</strong>
+                                        <small>${specialization}</small>
+                                    </div>
+                                    <span class="queue-status queue-status-${entry.queue_status}">${status}</span>
+                                </div>
+                                <div class="patient-queue-details">
+                                    <span><small>Queue number</small><strong class="queue-number">Q${String(Number(entry.queue_number)).padStart(3, '0')}</strong></span>
+                                    <span><small>Appointment</small><strong>${components.escapeHtml(appointmentDate)} · ${appointmentTime}</strong></span>
+                                    <span><small>Currently serving</small><strong>${components.escapeHtml(currentServing)}</strong></span>
+                                    <span><small>Patients ahead</small><strong>${ahead === null ? 'Available on appointment date' : ahead}</strong></span>
+                                </div>
+                            </article>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+        `;
+    },
+
+    async refreshPatientQueue() {
+        const display = document.getElementById('myQueueDisplay');
+        if (!display) return;
+        try {
+            const queue = await api.getMyQueue();
+            display.innerHTML = this.renderPatientQueueDisplay(queue);
+        } catch (error) {
+            display.innerHTML = `<div class="error">Error refreshing your queue: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    renderQueueDisplay(queue, selectedDate) {
+        const serving = queue.find((entry) => entry.queue_status === 'serving');
+        const waiting = queue.filter((entry) => entry.queue_status === 'waiting');
+        const history = queue.filter((entry) => ['completed', 'skipped'].includes(entry.queue_status));
+        const canUpdate = selectedDate === (() => {
+            const date = new Date();
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        })();
+        const formatNumber = (entry) => `Q${String(Number(entry.queue_number)).padStart(3, '0')}`;
+        const renderEntry = (entry, allowServing) => {
+            const patientName = `${components.escapeHtml(entry.patient_first_name)} ${components.escapeHtml(entry.patient_last_name)}`;
+            const appointmentTime = components.escapeHtml(String(entry.appointment_time || '').slice(0, 5));
+            let actions = '';
+            if (canUpdate && entry.queue_status === 'waiting') {
+                actions = `
+                    <button class="action-btn btn-edit" onclick="app.changeQueueStatus(${Number(entry.id)}, 'serving')" ${allowServing ? '' : 'disabled'}>Serve</button>
+                    <button class="action-btn btn-delete" onclick="app.changeQueueStatus(${Number(entry.id)}, 'skipped')">Skip</button>
+                `;
+            } else if (canUpdate && entry.queue_status === 'serving') {
+                actions = `
+                    <button class="action-btn btn-edit" onclick="app.changeQueueStatus(${Number(entry.id)}, 'completed')">Complete</button>
+                    <button class="action-btn btn-delete" onclick="app.changeQueueStatus(${Number(entry.id)}, 'skipped')">Skip</button>
+                `;
+            } else if (canUpdate && entry.queue_status === 'skipped') {
+                actions = `<button class="action-btn btn-edit" onclick="app.changeQueueStatus(${Number(entry.id)}, 'waiting')">Return to waiting</button>`;
+            }
+            const status = entry.queue_status.charAt(0).toUpperCase() + entry.queue_status.slice(1);
+            return `
+                <article class="queue-entry">
+                    <strong class="queue-number">${formatNumber(entry)}</strong>
+                    <span class="queue-patient">
+                        <strong>${patientName}</strong>
+                        <small>${appointmentTime}${entry.is_walk_in ? ' · Walk-in' : ' · Appointment'}</small>
+                    </span>
+                    <span class="queue-status queue-status-${entry.queue_status}">${status}</span>
+                    <span class="queue-actions">${actions}</span>
+                </article>
+            `;
+        };
+        const servingName = serving
+            ? `${components.escapeHtml(serving.patient_first_name)} ${components.escapeHtml(serving.patient_last_name)}`
+            : '';
+
+        return `
+            <section class="queue-current-serving">
+                <div>
+                    <span class="queue-section-label">CURRENTLY SERVING</span>
+                    ${serving
+                        ? `<h3>${formatNumber(serving)} · ${servingName}</h3><p>${components.escapeHtml(String(serving.appointment_time || '').slice(0, 5))}</p>`
+                        : '<h3>No patient is being served</h3><p>Start serving a waiting patient to show them here.</p>'}
+                </div>
+                <i class="fas fa-user-doctor" aria-hidden="true"></i>
+            </section>
+            <section class="queue-list-section">
+                <h3>Waiting (${waiting.length})</h3>
+                <div class="queue-entry-list">
+                    ${waiting.length
+                        ? waiting.map((entry) => renderEntry(entry, !serving)).join('')
+                        : '<p class="queue-empty-state">No patients are waiting for this date.</p>'}
+                </div>
+            </section>
+            <section class="queue-list-section">
+                <h3>Completed and skipped</h3>
+                <div class="queue-entry-list">
+                    ${history.length
+                        ? history.map((entry) => renderEntry(entry, false)).join('')
+                        : '<p class="queue-empty-state">No completed or skipped patients.</p>'}
+                </div>
+            </section>
+        `;
+    },
+
+    async refreshQueueDisplay() {
+        const display = document.getElementById('queueDisplay');
+        const dateInput = document.getElementById('queueDate');
+        if (!display || !dateInput) return;
+
+        const doctorId = window.currentUser.role === 'admin'
+            ? document.getElementById('queueDoctor')?.value
+            : null;
+        if (window.currentUser.role === 'admin' && !doctorId) {
+            display.innerHTML = '<p class="queue-empty-state">Select a doctor to view their queue.</p>';
+            return;
+        }
+
+        try {
+            const queue = await api.getQueue(dateInput.value, doctorId);
+            display.innerHTML = this.renderQueueDisplay(queue, dateInput.value);
+        } catch (error) {
+            display.innerHTML = `<div class="error">Error refreshing queue: ${components.escapeHtml(error.message)}</div>`;
+        }
+    },
+
+    async registerQueueWalkIn() {
+        const patientId = document.getElementById('queueWalkInPatient').value;
+        const doctorId = document.getElementById('queueWalkInDoctor').value;
+        if (!patientId || !doctorId) {
+            alert('Select a registered patient and doctor.');
+            return;
+        }
+
+        try {
+            const result = await api.registerQueueWalkIn({
+                patient_id: Number(patientId),
+                doctor_id: Number(doctorId),
+            });
+            document.getElementById('queueDoctor').value = doctorId;
+            const now = new Date();
+            document.getElementById('queueDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            alert(`Walk-in registered. Queue number: Q${String(result.appointment.queue_number).padStart(3, '0')}.`);
+            await this.refreshQueueDisplay();
+        } catch (error) {
+            alert(`Could not register walk-in: ${error.message}`);
+        }
+    },
+
+    async changeQueueStatus(appointmentId, status) {
+        const data = { status };
+        if (window.currentUser.role === 'admin') {
+            data.doctor_id = document.getElementById('queueDoctor').value;
+        }
+        try {
+            await api.updateQueueStatus(appointmentId, data);
+            await this.refreshQueueDisplay();
+        } catch (error) {
+            alert(`Could not update queue status: ${error.message}`);
+        }
+    },
+
     async saveDoctorSchedule() {
         const workingDays = [];
         document.querySelectorAll('.schedule-day-enabled:checked').forEach((checkbox) => {
@@ -318,6 +625,18 @@ const app = {
                 });
             });
         });
+        const overlappingHours = workingDays.some((range, index) =>
+            workingDays.slice(index + 1).some((other) =>
+                range.weekday === other.weekday &&
+                range.start_time < other.end_time &&
+                range.end_time > other.start_time
+            )
+        );
+        if (overlappingHours) {
+            alert('Working hours for the same day cannot overlap. Change or remove the overlapping time block before saving.');
+            return;
+        }
+
         try {
             await api.updateDoctorSchedule({
                 working_days: workingDays,
@@ -333,27 +652,57 @@ const app = {
     addWorkingHoursRange(weekday) {
         const container = document.querySelector(`.schedule-time-fields[data-weekday="${weekday}"]`);
         if (!container) return;
+        const existingRanges = Array.from(container.querySelectorAll('.schedule-time-row'))
+            .map((row) => ({
+                start: row.querySelector('.schedule-start').value,
+                end: row.querySelector('.schedule-end').value,
+            }))
+            .filter((range) => range.start && range.end && range.start < range.end)
+            .map((range) => ({
+                start: Number(range.start.slice(0, 2)) * 60 + Number(range.start.slice(3, 5)),
+                end: Number(range.end.slice(0, 2)) * 60 + Number(range.end.slice(3, 5)),
+            }));
+        const candidateStarts = Array.from({ length: 40 }, (_, index) => index * 30)
+            .sort((first, second) =>
+                Math.abs(first - 13 * 60) - Math.abs(second - 13 * 60) || second - first
+            );
+        const start = candidateStarts.find((candidate) =>
+            existingRanges.every((range) => candidate + 240 <= range.start || candidate >= range.end)
+        );
+        if (start === undefined) {
+            alert('There is no four-hour block available on this day without overlapping existing hours. Change an existing block before adding another.');
+            return;
+        }
+        const formatTime = (minutes) =>
+            `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
         const row = document.createElement('span');
         row.className = 'schedule-time-row';
         row.dataset.weekday = weekday;
         row.innerHTML = `
-            <input type="time" class="schedule-start" data-weekday="${weekday}" value="13:00" aria-label="Start time">
+            <input type="time" class="schedule-start" data-weekday="${weekday}" value="${formatTime(start)}" aria-label="Start time" required>
             <span>to</span>
-            <input type="time" class="schedule-end" data-weekday="${weekday}" value="17:00" aria-label="End time">
+            <input type="time" class="schedule-end" data-weekday="${weekday}" value="${formatTime(start + 240)}" aria-label="End time" required>
             <button class="schedule-remove-hours" type="button" data-weekday="${weekday}" aria-label="Remove hours"><i class="fas fa-times" aria-hidden="true"></i></button>
         `;
         container.insertBefore(row, container.querySelector('.schedule-add-hours'));
+        row.querySelectorAll('input, button').forEach((control) => {
+            control.disabled = !document.querySelector(`.schedule-day-enabled[data-weekday="${weekday}"]`).checked;
+        });
         row.querySelector('.schedule-remove-hours').addEventListener('click', () => this.removeWorkingHoursRange(row));
     },
 
     removeWorkingHoursRange(row) {
         const weekday = row.dataset.weekday;
-        row.remove();
-        if (!document.querySelector(`.schedule-time-row[data-weekday="${weekday}"]`)) {
+        const rows = document.querySelectorAll(`.schedule-time-row[data-weekday="${weekday}"]`);
+        if (rows.length === 1) {
+            row.querySelector('.schedule-start').value = '09:00';
+            row.querySelector('.schedule-end').value = '17:00';
             const checkbox = document.querySelector(`.schedule-day-enabled[data-weekday="${weekday}"]`);
             checkbox.checked = false;
             checkbox.dispatchEvent(new Event('change'));
+            return;
         }
+        row.remove();
     },
 
     async addUnavailableDate() {
@@ -402,10 +751,10 @@ const app = {
                 `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>` : '';
 
             const columns = isDoctor ?
-                ['appointment_date', 'appointment_time', 'patient_first_name', 'patient_last_name', 'patient_email', 'patient_contact_number', 'status', 'notes'] :
+                ['appointment_date', 'appointment_time', 'patient_first_name', 'patient_last_name', 'patient_email', 'patient_contact_number', 'status', 'queue_number', 'queue_status', 'notes'] :
                 isAdmin ?
-                    ['appointment_date', 'appointment_time', 'patient_first_name', 'doctor_first_name', 'status', 'rejection_reason', 'notes'] :
-                    ['appointment_date', 'appointment_time', 'doctor_first_name', 'doctor_last_name', 'specialization', 'status', 'rejection_reason', 'notes'];
+                    ['appointment_date', 'appointment_time', 'patient_first_name', 'doctor_first_name', 'status', 'queue_number', 'queue_status', 'rejection_reason', 'notes'] :
+                    ['appointment_date', 'appointment_time', 'doctor_first_name', 'doctor_last_name', 'specialization', 'status', 'queue_number', 'queue_status', 'rejection_reason', 'notes'];
 
             return `
                 ${!isDoctor ? `<button class="btn-add" onclick="app.showBookAppointmentModal()">+ Book New Appointment</button>` : ''}
