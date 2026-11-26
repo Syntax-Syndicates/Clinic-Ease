@@ -1,16 +1,26 @@
 // frontend/js/main.js
 const app = {
     async loadView(view) {
+        this.viewLoadId = (this.viewLoadId || 0) + 1;
+        const viewLoadId = this.viewLoadId;
         if (this.queueRefreshTimer) {
             clearInterval(this.queueRefreshTimer);
             this.queueRefreshTimer = null;
+        }
+        if (this.dashboardRefreshTimer) {
+            clearInterval(this.dashboardRefreshTimer);
+            this.dashboardRefreshTimer = null;
         }
         const container = document.getElementById('viewContainer');
         try {
             switch(view) {
                 case 'dashboard':
                     if (window.currentUser.role === 'admin') {
-                        container.innerHTML = await adminView.renderDashboard();
+                        const dashboard = await adminView.renderDashboard();
+                        if (this.viewLoadId === viewLoadId) {
+                            container.innerHTML = dashboard;
+                            this.dashboardRefreshTimer = setInterval(() => this.loadView('dashboard'), 60000);
+                        }
                     } else if (window.currentUser.role === 'doctor') {
                         container.innerHTML = await doctorView.renderDashboard();
                     } else {
