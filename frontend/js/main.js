@@ -228,6 +228,7 @@ const app = {
             const workingDays = schedule.working_days || [];
             const dayCards = weekdays.map((day, weekday) => {
                 const hours = workingDays.filter((entry) => Number(entry.weekday) === weekday);
+                const isEnabled = hours.length > 0;
                 const timeRows = (hours.length ? hours : [null]).map((range) => `
                     <span class="schedule-time-row" data-weekday="${weekday}">
                         <input type="time" class="schedule-start" data-weekday="${weekday}" value="${range ? String(range.start_time).slice(0, 5) : '09:00'}" aria-label="${day} start time" required>
@@ -237,28 +238,43 @@ const app = {
                     </span>
                 `).join('');
                 return `
-                    <div class="schedule-day-card">
+                    <div class="schedule-day-card${isEnabled ? ' is-enabled' : ''}">
                         <label class="schedule-day-toggle">
-                            <input type="checkbox" class="schedule-day-enabled" data-weekday="${weekday}" ${hours.length ? 'checked' : ''}>
+                            <input type="checkbox" class="schedule-day-enabled" data-weekday="${weekday}" ${isEnabled ? 'checked' : ''}>
                             <strong>${day}</strong>
+                            <span class="schedule-day-state">${isEnabled ? 'On schedule' : 'Off'}</span>
                         </label>
                         <span class="schedule-time-fields" data-weekday="${weekday}">
                             ${timeRows}
-                            <button class="schedule-add-hours" type="button" data-weekday="${weekday}"><i class="fas fa-plus" aria-hidden="true"></i> Add hours</button>
+                            <button class="schedule-add-hours" type="button" data-weekday="${weekday}" aria-label="Add hours for ${day}"><i class="fas fa-plus" aria-hidden="true"></i> Add hours</button>
                         </span>
                     </div>
                 `;
             }).join('');
             const unavailableDates = schedule.unavailable_dates || [];
             const unavailableRows = unavailableDates.length
-                ? unavailableDates.map((item) => `
-                    <li class="unavailable-date-row">
-                        <span><strong>${components.escapeHtml(String(item.unavailable_date).slice(0, 10))}</strong>
-                        ${item.reason ? `<small>${components.escapeHtml(item.reason)}</small>` : ''}</span>
-                        <button class="action-btn btn-delete" type="button" onclick="app.removeUnavailableDate(${Number(item.id)})">Remove</button>
-                    </li>
-                `).join('')
-                : '<li class="schedule-empty-state">No unavailable dates added.</li>';
+                ? unavailableDates.map((item) => {
+                    const date = String(item.unavailable_date).slice(0, 10);
+                    const displayDate = new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                    });
+                    return `
+                        <li class="unavailable-date-row">
+                            <span class="unavailable-date-icon"><i class="fas fa-calendar-day" aria-hidden="true"></i></span>
+                            <time class="unavailable-date-details" datetime="${components.escapeHtml(date)}">
+                                <strong>${components.escapeHtml(displayDate)}</strong>
+                                <small>${item.reason ? components.escapeHtml(item.reason) : 'No reason provided'}</small>
+                            </time>
+                            <button class="schedule-remove-date" type="button" onclick="app.removeUnavailableDate(${Number(item.id)})" aria-label="Remove blocked date ${components.escapeHtml(displayDate)}">
+                                <i class="fas fa-trash-alt" aria-hidden="true"></i><span>Remove</span>
+                            </button>
+                        </li>
+                    `;
+                }).join('')
+                : '<li class="schedule-empty-state"><i class="fas fa-calendar-check" aria-hidden="true"></i><span>No unavailable dates added yet.</span></li>';
             const today = new Date();
             const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -275,6 +291,11 @@ const app = {
                 document.querySelectorAll('.schedule-day-enabled').forEach((checkbox) => {
                     checkbox.addEventListener('change', () => {
                         const weekday = checkbox.dataset.weekday;
+                        const dayCard = checkbox.closest('.schedule-day-card');
+                        dayCard.classList.toggle('is-enabled', checkbox.checked);
+                        dayCard.querySelector('.schedule-day-state').textContent = checkbox.checked
+                            ? 'On schedule'
+                            : 'Off';
                         document.querySelectorAll(`.schedule-time-fields[data-weekday="${weekday}"] input, .schedule-time-fields[data-weekday="${weekday}"] button`).forEach((control) => {
                             control.disabled = !checkbox.checked;
                         });
@@ -290,33 +311,46 @@ const app = {
             }, 0);
 
             return `
-                <section class="schedule-page">
+                <section class="schedule-page" aria-labelledby="schedule-heading">
                     <header class="schedule-page-heading">
                         <div>
-                            <p class="patient-eyebrow">KEEP YOUR CALENDAR ACCURATE</p>
-                            <h2>Working hours</h2>
-                            <p>Patients can only book slots inside these hours. Use Add hours for another time block, such as a split shift. Time blocks cannot overlap.</p>
+                            <p class="patient-eyebrow">YOUR AVAILABILITY</p>
+                            <h2 id="schedule-heading">My Schedule</h2>
+                            <p>Set the hours patients can book with you. Add another time block for split shifts; blocks on the same day cannot overlap.</p>
                         </div>
-                        <span class="schedule-heading-icon"><i class="fas fa-calendar-check" aria-hidden="true"></i></span>
+                        <span class="schedule-heading-icon" aria-hidden="true"><i class="fas fa-calendar-check"></i></span>
                     </header>
-                    <form id="doctorScheduleForm" class="schedule-panel">
+                    <form id="doctorScheduleForm" class="schedule-panel" aria-label="Working hours">
+                        <div class="schedule-section-heading">
+                            <div><h3>Weekly working hours</h3><p>Choose the days you are available and set one or more time blocks.</p></div>
+                            <span class="schedule-section-tag"><i class="fas fa-clock" aria-hidden="true"></i> Local time</span>
+                        </div>
                         <div class="schedule-days-grid">${dayCards}</div>
                         <div class="schedule-duration-row">
-                            <label for="appointment_duration">Consultation length</label>
-                            <input id="appointment_duration" type="number" min="5" max="240" step="5" value="${Number(schedule.appointment_duration_minutes) || 30}" required>
-                            <span>minutes</span>
-                            <button class="btn-primary schedule-save-button" type="submit">Save working hours</button>
+                            <div class="schedule-duration-copy">
+                                <label for="appointment_duration">Consultation length</label>
+                                <small>Each appointment slot uses this duration.</small>
+                            </div>
+                            <span class="schedule-duration-control">
+                                <input id="appointment_duration" type="number" min="5" max="240" step="5" value="${Number(schedule.appointment_duration_minutes) || 30}" required>
+                                <span>minutes</span>
+                            </span>
+                            <button class="btn-primary schedule-save-button" type="submit"><i class="fas fa-check" aria-hidden="true"></i> Save working hours</button>
                         </div>
                     </form>
-                    <section class="schedule-panel unavailable-panel">
+                    <section class="schedule-panel unavailable-panel" aria-labelledby="unavailable-heading">
                         <div class="schedule-panel-heading">
-                            <div><h2>Unavailable dates</h2><p>Block a full day so no new appointments can be booked.</p></div>
+                            <div>
+                                <p class="patient-eyebrow">TIME OFF</p>
+                                <h2 id="unavailable-heading">Unavailable dates</h2>
+                                <p>Block a full day so patients cannot book new appointments.</p>
+                            </div>
                             <i class="fas fa-calendar-times" aria-hidden="true"></i>
                         </div>
                         <form id="unavailabilityForm" class="unavailability-form">
-                            <label class="schedule-field"><span>Date</span><input id="unavailable_date" type="date" min="${minDate}" required></label>
-                            <label class="schedule-field"><span>Reason (optional)</span><input id="unavailable_reason" type="text" maxlength="500" placeholder="e.g. Clinic closed"></label>
-                            <button class="btn-primary" type="submit">Block date</button>
+                            <label class="schedule-field" for="unavailable_date"><span>Date</span><input id="unavailable_date" type="date" min="${minDate}" required></label>
+                            <label class="schedule-field" for="unavailable_reason"><span>Reason <small>(optional)</small></span><input id="unavailable_reason" type="text" maxlength="500" placeholder="e.g. Clinic closed"></label>
+                            <button class="btn-primary" type="submit"><i class="fas fa-ban" aria-hidden="true"></i> Block date</button>
                         </form>
                         <ul class="unavailable-date-list">${unavailableRows}</ul>
                     </section>
