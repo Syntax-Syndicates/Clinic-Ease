@@ -263,12 +263,47 @@ const adminView = {
                 api.getAppointmentReport(),
                 api.getPatientReport()
             ]);
+            const appointmentCounts = (apptReport.byStatus || []).reduce((counts, row) => {
+                counts[row.status] = Number(row.count);
+                return counts;
+            }, {});
+            const todayAppointments = apptReport.todayAppointments || [];
+            const statusLabel = (status) => status === 'approved'
+                ? 'Confirmed'
+                : status.charAt(0).toUpperCase() + status.slice(1);
+
             return `
-                <div class="stats-grid">
-                    <div class="stat-card"><i class="fas fa-users"></i><h3>Total Patients</h3><div class="number">${patientReport.totalPatients}</div></div>
-                    <div class="stat-card"><i class="fas fa-user-md"></i><h3>Total Doctors</h3><div class="number">${patientReport.totalDoctors}</div></div>
-                    <div class="stat-card"><i class="fas fa-chart-line"></i><h3>New Patients (This Month)</h3><div class="number">${patientReport.newPatientsThisMonth}</div></div>
-                    <div class="stat-card"><i class="fas fa-calendar-check"></i><h3>Total Appointments</h3><div class="number">${apptReport.total}</div></div>
+                <div class="admin-dashboard">
+                    <section class="dashboard-section" aria-labelledby="clinic-overview-heading">
+                        <h2 id="clinic-overview-heading">Clinic Overview</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card"><i class="fas fa-users"></i><h3>Registered Patients</h3><div class="number">${Number(patientReport.totalPatients).toLocaleString()}</div></div>
+                            <div class="stat-card"><i class="fas fa-user-md"></i><h3>Registered Doctors</h3><div class="number">${Number(patientReport.totalDoctors).toLocaleString()}</div></div>
+                        </div>
+                    </section>
+                    <section class="dashboard-section" aria-labelledby="appointment-status-heading">
+                        <h2 id="appointment-status-heading">Appointment Status</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card"><i class="fas fa-hourglass-half"></i><h3>Pending</h3><div class="number">${(appointmentCounts.pending || 0).toLocaleString()}</div></div>
+                            <div class="stat-card"><i class="fas fa-calendar-check"></i><h3>Confirmed</h3><div class="number">${(appointmentCounts.approved || 0).toLocaleString()}</div></div>
+                            <div class="stat-card"><i class="fas fa-check-circle"></i><h3>Completed</h3><div class="number">${(appointmentCounts.completed || 0).toLocaleString()}</div></div>
+                            <div class="stat-card"><i class="fas fa-calendar-times"></i><h3>Cancelled</h3><div class="number">${(appointmentCounts.cancelled || 0).toLocaleString()}</div></div>
+                        </div>
+                    </section>
+                    <section class="dashboard-section" aria-labelledby="today-appointments-heading">
+                        <h2 id="today-appointments-heading">Today's Appointments</h2>
+                        <div class="data-table">
+                            ${todayAppointments.length
+                                ? components.renderTable(
+                                    ['appointment_time', 'patient_name', 'doctor_name', 'status'],
+                                    todayAppointments.map((appointment) => ({
+                                        ...appointment,
+                                        status: statusLabel(appointment.status)
+                                    }))
+                                )
+                                : '<p class="dashboard-empty-state">No appointments scheduled for today.</p>'}
+                        </div>
+                    </section>
                 </div>
             `;
         } catch (error) {

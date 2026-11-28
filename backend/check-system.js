@@ -10,6 +10,16 @@ const requiredTables = [
     'doctors',
     'appointments',
     'medical_records',
+    'doctor_schedules',
+    'doctor_unavailability',
+];
+const requiredColumns = [
+    ['doctors', 'schedule_configured'],
+    ['doctors', 'appointment_duration_minutes'],
+    ['appointments', 'appointment_duration_minutes'],
+    ['appointments', 'queue_number'],
+    ['appointments', 'queue_status'],
+    ['appointments', 'is_walk_in'],
 ];
 const requiredProcedures = [
     'clinicease_auth_active_doctor',
@@ -23,6 +33,10 @@ const requiredProcedures = [
     'clinicease_appointment_list_by_doctor',
     'clinicease_appointment_list_by_patient',
     'clinicease_appointment_update',
+    'clinicease_queue_list',
+    'clinicease_queue_get_patient',
+    'clinicease_queue_register_walk_in',
+    'clinicease_queue_update_status',
     'clinicease_doctor_create',
     'clinicease_doctor_delete',
     'clinicease_doctor_find_by_id',
@@ -84,6 +98,37 @@ async function checkSystem() {
         throw new Error(`Database is missing required tables: ${missingTables.join(', ')}`);
     }
 
+    const columnResult = await client.query(
+        `SELECT table_name, column_name
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = ANY($1::text[])`,
+        [[...new Set(requiredColumns.map(([table]) => table))]]
+    );
+    const availableColumns = new Set(
+        columnResult.rows.map(({ table_name, column_name }) => `${table_name}.${column_name}`)
+    );
+    const missingColumns = requiredColumns
+        .map(([table, column]) => `${table}.${column}`)
+        .filter((column) => !availableColumns.has(column));
+    if (missingColumns.length > 0) {
+        const missingMigrations = [];
+        if (missingColumns.some((column) =>
+            ['appointments.queue_number', 'appointments.queue_status', 'appointments.is_walk_in'].includes(column)
+        )) {
+            missingMigrations.push('database/patient_queue_management.sql');
+        }
+        if (missingColumns.some((column) =>
+            ['doctors.schedule_configured', 'doctors.appointment_duration_minutes', 'appointments.appointment_duration_minutes'].includes(column)
+        )) {
+            missingMigrations.push('database/doctor_schedule_management.sql');
+        }
+        throw new Error(
+            `Database is missing required columns: ${missingColumns.join(', ')}. `
+            + `Apply ${missingMigrations.join(' and ')}.`
+        );
+    }
+
     const procedureResult = await client.query(
         `SELECT routine_name
          FROM information_schema.routines
@@ -101,7 +146,7 @@ async function checkSystem() {
         );
     }
 
-    console.log('Database: connected; required tables are present.');
+    console.log('Database: connected; required tables and columns are present.');
     console.log('Database: all ClinicEase stored procedures are installed.');
 
     const response = await fetch(`http://localhost:${port}/api/health`, {
