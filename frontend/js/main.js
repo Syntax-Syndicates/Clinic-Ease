@@ -43,7 +43,18 @@ const app = {
                     }
                     break;
                 case 'appointments':
-                    container.innerHTML = await this.renderAppointments();
+                    if (window.currentUser.role === 'admin') {
+                        container.innerHTML = `
+                            <div class="appointments-loading" role="status">
+                                <span class="appointments-loading-spinner" aria-hidden="true"></span>
+                                <span>Loading appointments...</span>
+                            </div>
+                        `;
+                    }
+                    const appointmentsView = await this.renderAppointments();
+                    if (this.viewLoadId === viewLoadId) {
+                        container.innerHTML = appointmentsView;
+                    }
                     break;
                 case 'queue':
                     if (window.currentUser.role === 'patient') {
@@ -774,30 +785,23 @@ const app = {
         try {
             const appointments = await api.getAppointments();
             const role = window.currentUser.role;
-            const isAdmin = role === 'admin';
             const isDoctor = role === 'doctor';
+            if (role === 'admin') {
+                return this.renderAdminAppointments(appointments);
+            }
 
-            const renderActions = isDoctor ? (row) => row.status === 'pending' ? `
-                <button class="action-btn btn-edit" onclick="app.decideAppointment(${row.id}, 'approved')">Approve</button>
-                <button class="action-btn btn-delete" onclick="app.decideAppointment(${row.id}, 'rejected')">Reject</button>
-            ` : '' : isAdmin ? (row) => {
-                let buttons = `
-                    <button class="action-btn btn-edit" onclick="app.editAppointment(${row.id})">Edit</button>
-                `;
-                if (['pending', 'approved'].includes(row.status)) {
-                    buttons += `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>`;
-                }
-                if (row.status === 'approved') {
-                    buttons += `<button class="action-btn" style="background:#10b981;" onclick="adminView.showAddMedicalRecordModal(${row.id}, ${row.patient_id}, ${row.doctor_id})">Add Medical Record</button>`;
-                }
-                return buttons;
-            } : (row) => ['pending', 'approved'].includes(row.status) ?
-                `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>` : '';
+            const renderActions = isDoctor
+                ? (row) => row.status === 'pending' ? `
+                    <button class="action-btn btn-edit" onclick="app.decideAppointment(${row.id}, 'approved')">Approve</button>
+                    <button class="action-btn btn-delete" onclick="app.decideAppointment(${row.id}, 'rejected')">Reject</button>
+                ` : ''
+                : (row) => ['pending', 'approved'].includes(row.status)
+                    ? `<button class="action-btn btn-delete" onclick="app.cancelAppointment(${row.id})">Cancel</button>`
+                    : '';
 
-            const columns = isDoctor ?
-                ['appointment_date', 'appointment_time', 'patient_first_name', 'patient_last_name', 'patient_email', 'patient_contact_number', 'status', 'queue_number', 'queue_status', 'notes'] :
-                isAdmin ?
-                    ['appointment_date', 'appointment_time', 'patient_first_name', 'doctor_first_name', 'status', 'queue_number', 'queue_status', 'rejection_reason', 'notes'] :
+            const columns = isDoctor
+                ? ['appointment_date', 'appointment_time', 'patient_first_name', 'patient_last_name', 'patient_email', 'patient_contact_number', 'status', 'queue_number', 'queue_status', 'notes']
+                :
                     ['appointment_date', 'appointment_time', 'doctor_first_name', 'doctor_last_name', 'specialization', 'status', 'queue_number', 'queue_status', 'rejection_reason', 'notes'];
 
             return `
@@ -813,6 +817,212 @@ const app = {
         } catch (error) {
             return `<div class="error">Error loading appointments: ${components.escapeHtml(error.message)}</div>`;
         }
+    },
+
+    renderAdminAppointments(appointments) {
+        const statusOptions = [
+            ['pending', 'Pending'],
+            ['approved', 'Approved'],
+            ['rejected', 'Rejected'],
+            ['completed', 'Completed'],
+            ['cancelled', 'Cancelled'],
+        ];
+        const appointmentsMarkup = this.renderAdminAppointmentResults(appointments, appointments.length);
+
+        setTimeout(() => {
+            const searchInput = document.getElementById('appointmentSearch');
+            const statusFilter = document.getElementById('appointmentStatusFilter');
+            const dateFilter = document.getElementById('appointmentDateFilter');
+            const clearButton = document.getElementById('clearAppointmentFilters');
+            const results = document.getElementById('appointmentResults');
+            if (!searchInput || !statusFilter || !dateFilter || !clearButton || !results) return;
+
+            const updateResults = () => {
+                const searchText = searchInput.value.trim().toLowerCase();
+                const selectedStatus = statusFilter.value;
+                const selectedDate = dateFilter.value;
+                const filteredAppointments = appointments.filter((appointment) => {
+                    const appointmentDate = String(appointment.appointment_date || '').slice(0, 10);
+                    const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`;
+                    const doctorName = `${appointment.doctor_first_name || ''} ${appointment.doctor_last_name || ''}`;
+                    const searchableText = [
+                        appointment.id,
+                        patientName,
+                        doctorName,
+                        appointment.appointment_date,
+                        appointment.appointment_time,
+                        appointment.status,
+                        appointment.queue_number,
+                        appointment.queue_status,
+                        appointment.notes,
+                        appointment.rejection_reason,
+                    ].join(' ').toLowerCase();
+
+                    return (!searchText || searchableText.includes(searchText)) &&
+                        (!selectedStatus || appointment.status === selectedStatus) &&
+                        (!selectedDate || appointmentDate === selectedDate);
+                });
+                results.innerHTML = this.renderAdminAppointmentResults(filteredAppointments, appointments.length);
+            };
+
+            searchInput.addEventListener('input', updateResults);
+            statusFilter.addEventListener('change', updateResults);
+            dateFilter.addEventListener('change', updateResults);
+            clearButton.addEventListener('click', () => {
+                searchInput.value = '';
+                statusFilter.value = '';
+                dateFilter.value = '';
+                updateResults();
+                searchInput.focus();
+            });
+        }, 0);
+
+        return `
+            <section class="appointment-management" aria-labelledby="appointment-management-heading">
+                <header class="appointment-management-header">
+                    <div>
+                        <p class="appointment-eyebrow">CLINIC OPERATIONS</p>
+                        <h2 id="appointment-management-heading">Appointment management</h2>
+                        <p>Review appointment details, update requests, and manage the clinic schedule.</p>
+                    </div>
+                    <button class="btn-add appointment-book-button" type="button" onclick="app.showBookAppointmentModal()">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Book new appointment
+                    </button>
+                </header>
+                <section class="appointment-toolbar" aria-label="Search and filter appointments">
+                    <label class="appointment-search-field" for="appointmentSearch">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                        <input id="appointmentSearch" type="search" aria-label="Search appointments" placeholder="Search patient, doctor, ID, or notes" autocomplete="off">
+                    </label>
+                    <label class="appointment-filter-field" for="appointmentStatusFilter">
+                        <span>Status</span>
+                        <select id="appointmentStatusFilter">
+                            <option value="">All statuses</option>
+                            ${statusOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="appointment-filter-field" for="appointmentDateFilter">
+                        <span>Appointment date</span>
+                        <input id="appointmentDateFilter" type="date">
+                    </label>
+                    <button id="clearAppointmentFilters" class="appointment-clear-filters" type="button">
+                        <i class="fas fa-rotate-left" aria-hidden="true"></i> Clear filters
+                    </button>
+                </section>
+                <div id="appointmentResults" class="appointment-results" aria-live="polite" aria-relevant="all">
+                    ${appointmentsMarkup}
+                </div>
+            </section>
+        `;
+    },
+
+    renderAdminAppointmentResults(appointments, totalAppointments) {
+        if (totalAppointments === 0) {
+            return `
+                <div class="appointment-empty-state">
+                    <span class="appointment-empty-icon"><i class="fas fa-calendar-xmark" aria-hidden="true"></i></span>
+                    <h3>No appointments yet</h3>
+                    <p>Appointments will appear here when patients book a visit.</p>
+                </div>
+            `;
+        }
+        if (appointments.length === 0) {
+            return `
+                <div class="appointment-empty-state appointment-no-results">
+                    <span class="appointment-empty-icon"><i class="fas fa-magnifying-glass" aria-hidden="true"></i></span>
+                    <h3>No matching appointments</h3>
+                    <p>Try changing your search terms or filters.</p>
+                </div>
+            `;
+        }
+
+        const statusLabels = {
+            pending: 'Pending',
+            approved: 'Approved',
+            rejected: 'Rejected',
+            completed: 'Completed',
+            cancelled: 'Cancelled',
+        };
+        const formatDate = (value) => {
+            const dateValue = String(value || '').slice(0, 10);
+            const date = new Date(`${dateValue}T00:00:00`);
+            return Number.isNaN(date.getTime())
+                ? components.escapeHtml(dateValue || '—')
+                : components.escapeHtml(date.toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                }));
+        };
+        const formatTime = (value) => {
+            const [hours, minutes] = String(value || '').slice(0, 5).split(':').map(Number);
+            if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return components.escapeHtml(value || '—');
+            const hour = hours % 12 || 12;
+            return `${hour}:${String(minutes).padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
+        };
+
+        return `
+            <p class="appointment-results-summary" role="status">
+                Showing <strong>${appointments.length}</strong> of <strong>${totalAppointments}</strong> appointments
+            </p>
+            <div class="appointment-table-wrap">
+                <table class="appointment-table">
+                    <caption class="appointment-table-caption">Appointment records and administrative actions</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Date &amp; time</th>
+                            <th scope="col">Patient</th>
+                            <th scope="col">Doctor</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Queue</th>
+                            <th scope="col">Notes</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${appointments.map((appointment) => {
+                            const id = Number(appointment.id);
+                            const patientName = `${appointment.patient_first_name || ''} ${appointment.patient_last_name || ''}`.trim() || 'Unknown patient';
+                            const doctorName = `${appointment.doctor_first_name || ''} ${appointment.doctor_last_name || ''}`.trim() || 'Unknown doctor';
+                            const status = Object.prototype.hasOwnProperty.call(statusLabels, appointment.status)
+                                ? appointment.status
+                                : 'unknown';
+                            const statusLabel = statusLabels[status] || 'Unknown';
+                            const notes = appointment.rejection_reason
+                                ? `Rejection reason: ${appointment.rejection_reason}`
+                                : appointment.notes || '—';
+                            const queueDetails = appointment.queue_number
+                                ? `#${appointment.queue_number}${appointment.queue_status ? ` · ${String(appointment.queue_status).replace(/^\w/, (letter) => letter.toUpperCase())}` : ''}`
+                                : '—';
+                            const actions = [
+                                `<button class="appointment-action appointment-action-edit" type="button" onclick="app.editAppointment(${id})"><i class="fas fa-pen" aria-hidden="true"></i><span>Edit</span></button>`,
+                            ];
+                            if (['pending', 'approved'].includes(appointment.status)) {
+                                actions.push(`<button class="appointment-action appointment-action-cancel" type="button" onclick="app.cancelAppointment(${id})"><i class="fas fa-ban" aria-hidden="true"></i><span>Cancel</span></button>`);
+                            }
+                            if (appointment.status === 'approved') {
+                                actions.push(`<button class="appointment-action appointment-action-record" type="button" onclick="adminView.showAddMedicalRecordModal(${id}, ${Number(appointment.patient_id)}, ${Number(appointment.doctor_id)})"><i class="fas fa-notes-medical" aria-hidden="true"></i><span>Add record</span></button>`);
+                            }
+                            return `
+                                <tr>
+                                    <td data-label="Date &amp; time">
+                                        <span class="appointment-date-value">${formatDate(appointment.appointment_date)}</span>
+                                        <span class="appointment-time-value">${formatTime(appointment.appointment_time)}</span>
+                                        <span class="appointment-id-value">#${components.escapeHtml(appointment.id)}</span>
+                                    </td>
+                                    <td data-label="Patient"><span class="appointment-person-name">${components.escapeHtml(patientName)}</span></td>
+                                    <td data-label="Doctor"><span class="appointment-person-name">${components.escapeHtml(doctorName)}</span></td>
+                                    <td data-label="Status"><span class="appointment-status-badge status-${status}">${statusLabel}</span></td>
+                                    <td data-label="Queue"><span class="appointment-queue-value">${components.escapeHtml(queueDetails)}</span></td>
+                                    <td data-label="Notes"><span class="appointment-notes-value" title="${components.escapeHtml(notes)}">${components.escapeHtml(notes)}</span></td>
+                                    <td class="appointment-actions-cell" data-label="Actions"><div class="appointment-actions">${actions.join('')}</div></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
     },
 
     async renderMedicalRecords() {
