@@ -18,22 +18,6 @@ BEGIN
                 WHERE is_deleted = FALSE GROUP BY status
             ) row_data
         ), '[]'::jsonb),
-        'todayAppointments', COALESCE((
-            SELECT jsonb_agg(
-                jsonb_build_object(
-                    'appointment_time', a.appointment_time,
-                    'patient_name', CONCAT_WS(' ', p.first_name, p.last_name),
-                    'doctor_name', CONCAT_WS(' ', d.first_name, d.last_name),
-                    'status', a.status
-                )
-                ORDER BY a.appointment_time
-            )
-            FROM appointments a
-            JOIN patients p ON p.id = a.patient_id
-            JOIN doctors d ON d.id = a.doctor_id
-            WHERE a.appointment_date = CURRENT_DATE
-              AND a.is_deleted = FALSE
-        ), '[]'::jsonb),
         'monthly', COALESCE((
             SELECT jsonb_agg(to_jsonb(row_data) ORDER BY row_data.month DESC)
             FROM (

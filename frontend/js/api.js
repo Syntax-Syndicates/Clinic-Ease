@@ -101,19 +101,6 @@ class API {
     // Appointments
     getAppointments() { return this.request('/appointments'); }
     getAppointmentById(id) { return this.request(`/appointments/${id}`); }
-    getMyQueue() { return this.request('/queue/me'); }
-    getQueue(date, doctorId) {
-        return this.request(`/queue?date=${encodeURIComponent(date)}&doctor_id=${encodeURIComponent(doctorId)}`);
-    }
-    registerQueueWalkIn(data) {
-        return this.request('/queue/walk-ins', { method: 'POST', body: JSON.stringify(data) });
-    }
-    updateQueueStatus(id, data) {
-        return this.request(`/queue/${encodeURIComponent(id)}/status`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
-    }
     getAppointmentAvailability(doctorId, date) {
         return this.request(`/appointments/availability?doctor_id=${encodeURIComponent(doctorId)}&date=${encodeURIComponent(date)}`);
     }

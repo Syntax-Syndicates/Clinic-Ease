@@ -104,18 +104,15 @@ const auth = {
         const commonItems = user.role === 'doctor' ? `
             <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
             <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
-            <li data-view="queue"><i class="fas fa-users"></i><span>Patient Queue</span></li>
             <li data-view="schedule"><i class="fas fa-clock"></i><span>My Schedule</span></li>
         ` : `
             <li data-view="dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></li>
             <li data-view="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span></li>
-            ${user.role === 'patient' ? '<li data-view="queue"><i class="fas fa-users"></i><span>My Queue</span></li>' : ''}
             <li data-view="medical-records"><i class="fas fa-notes-medical"></i><span>Medical Records</span></li>
         `;
         navMenu.innerHTML = `
             ${commonItems}
             ${user.role === 'admin' ? `
-                <li data-view="queue"><i class="fas fa-users"></i><span>Patient Queue</span></li>
                 <li data-view="patients"><i class="fas fa-users"></i><span>Patients</span></li>
                 <li data-view="doctors"><i class="fas fa-user-md"></i><span>Doctors</span></li>
                 <li data-view="reports"><i class="fas fa-chart-bar"></i><span>Reports</span></li>

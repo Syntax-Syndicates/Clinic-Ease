@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "check": "node check-system.js",
-    "test": "node --test test/appointmentAvailability.test.js test/queueController.test.js"
+    "test": "node --test test/appointmentAvailability.test.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
