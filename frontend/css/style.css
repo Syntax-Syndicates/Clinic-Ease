@@ -1302,7 +1302,7 @@ tbody td {
     margin-top: 10px;
 }
 
-}
+
 
 @keyframes pulseHighlight {
     0%, 100% { box-shadow: 0 0 0 0 rgba(21, 154, 140, 0.14); }

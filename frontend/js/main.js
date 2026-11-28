@@ -58,9 +58,15 @@ const app = {
                     break;
                 case 'queue':
                     if (window.currentUser.role === 'patient') {
-                        container.innerHTML = await this.renderPatientQueue();
+                        const patientQueueView = await this.renderPatientQueue(viewLoadId);
+                        if (this.viewLoadId === viewLoadId) {
+                            container.innerHTML = patientQueueView;
+                        }
                     } else if (['admin', 'doctor'].includes(window.currentUser.role)) {
-                        container.innerHTML = await this.renderQueue();
+                        const queueView = await this.renderQueue(viewLoadId);
+                        if (this.viewLoadId === viewLoadId) {
+                            container.innerHTML = queueView;
+                        }
                     }
                     break;
                 case 'schedule':
@@ -372,7 +378,7 @@ const app = {
         }
     },
 
-    async renderQueue() {
+    async renderQueue(viewLoadId) {
         try {
             const isAdmin = window.currentUser.role === 'admin';
             const doctors = isAdmin
@@ -396,16 +402,19 @@ const app = {
                 </option>
             `).join('');
 
-            this.queueRefreshTimer = setTimeout(() => {
-                if (!document.getElementById('queueDisplay')) return;
-                document.getElementById('queueDate')?.addEventListener('change', () => this.refreshQueueDisplay());
-                document.getElementById('queueDoctor')?.addEventListener('change', () => this.refreshQueueDisplay());
-                document.getElementById('queueWalkInForm')?.addEventListener('submit', (event) => {
-                    event.preventDefault();
-                    this.registerQueueWalkIn();
-                });
-                this.queueRefreshTimer = setInterval(() => this.refreshQueueDisplay(), 10000);
-            }, 0);
+            if (this.viewLoadId === viewLoadId) {
+                this.queueRefreshTimer = setTimeout(() => {
+                    if (this.viewLoadId !== viewLoadId) return;
+                    if (!document.getElementById('queueDisplay')) return;
+                    document.getElementById('queueDate')?.addEventListener('change', () => this.refreshQueueDisplay());
+                    document.getElementById('queueDoctor')?.addEventListener('change', () => this.refreshQueueDisplay());
+                    document.getElementById('queueWalkInForm')?.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        this.registerQueueWalkIn();
+                    });
+                    this.queueRefreshTimer = setInterval(() => this.refreshQueueDisplay(), 10000);
+                }, 0);
+            }
 
             return `
                 <section class="queue-page">
@@ -449,13 +458,16 @@ const app = {
         }
     },
 
-    async renderPatientQueue() {
+    async renderPatientQueue(viewLoadId) {
         try {
             const queue = await api.getMyQueue();
-            this.queueRefreshTimer = setTimeout(() => {
-                if (!document.getElementById('myQueueDisplay')) return;
-                this.queueRefreshTimer = setInterval(() => this.refreshPatientQueue(), 10000);
-            }, 0);
+            if (this.viewLoadId === viewLoadId) {
+                this.queueRefreshTimer = setTimeout(() => {
+                    if (this.viewLoadId !== viewLoadId) return;
+                    if (!document.getElementById('myQueueDisplay')) return;
+                    this.queueRefreshTimer = setInterval(() => this.refreshPatientQueue(), 10000);
+                }, 0);
+            }
 
             return `
                 <section class="queue-page">
